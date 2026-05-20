@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Getting started with dqcheckr</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Getting started with dqcheckr</h1>
+
+
+
+<p><code>dqcheckr</code> automates the verification of recurring
+external dataset deliveries. For each new file arrival it runs a battery
+of quality checks, compares the file to the previous delivery, writes a
+self-contained HTML report, and records summary statistics in a local
+SQLite database so that quality trends can be tracked over time.</p>
+<div id="how-it-works" class="section level2">
+<h2>How it works</h2>
+<pre><code>Your data file                  Your YAML config
+      │                                │
+      ▼                                ▼
+  read_dataset()            load_config()
+  (all columns as           (global defaults +
+   character, trimmed)       per-dataset rules)
+      │                                │
+      └──────────────┬─────────────────┘
+                     ▼
+          run_qc_checks()        ← single-snapshot checks (QC / SC series)
+          run_comparison_checks()← vs previous delivery   (CP series)
+          run_custom_checks()    ← your own rules
+                     │
+                     ▼
+          write_snapshot()       ← SQLite: run summary + per-column stats
+          render_report()        ← self-contained HTML
+                     │
+                     ▼
+          run_dq_check()         ← the one function you call</code></pre>
+<p>A data officer runs a single command for each arriving dataset:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">run_dq_check</span>(<span class="st">&quot;customer_accounts&quot;</span>, <span class="at">config_dir =</span> <span class="st">&quot;path/to/configs&quot;</span>)</span></code></pre></div>
+<p>This prints a one-line console summary, writes an HTML report, and
+returns <code>list(status, report_path, snapshot_id)</code>
+invisibly.</p>
+<hr />
+</div>
+<div id="installation" class="section level2">
+<h2>Installation</h2>
+<p><code>dqcheckr</code> is a first-party package — install it directly
+from source:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>devtools<span class="sc">::</span><span class="fu">install</span>(<span class="st">&quot;path/to/dqr/dqcheckr&quot;</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">library</span>(dqcheckr)</span></code></pre></div>
+<p>All dependencies are on CRAN: <code>readr</code>, <code>DBI</code>,
+<code>RSQLite</code>, <code>rmarkdown</code>, <code>knitr</code>,
+<code>kableExtra</code>, <code>ggplot2</code>, <code>gridExtra</code>,
+<code>yaml</code>, <code>dplyr</code>, <code>tidyr</code>,
+<code>rlang</code>.</p>
+<hr />
+</div>
+<div id="configuration" class="section level2">
+<h2>Configuration</h2>
+<p>Two YAML files control every run.</p>
+<div id="global-config-dqcheckr.yml" class="section level3">
+<h3>Global config — <code>dqcheckr.yml</code></h3>
+<p>Placed in your config directory. Sets default thresholds used by all
+datasets unless a dataset overrides them.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">snapshot_db</span><span class="kw">:</span><span class="at">       </span><span class="st">&quot;data/snapshots.sqlite&quot;</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="fu">report_output_dir</span><span class="kw">:</span><span class="at"> </span><span class="st">&quot;reports/&quot;</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="fu">default_rules</span><span class="kw">:</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co">  # Proportion of non-empty values that must parse as numeric for a column to</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">  # be classified as numeric (affects type inference across many checks)</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="at">  </span><span class="fu">type_inference_threshold</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.90</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">  # FAIL if any column&#39;s missing-value rate exceeds this (0-1)</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="at">  </span><span class="fu">max_missing_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.05</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">  # FAIL if non-numeric values in a numeric column exceed this rate</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="at">  </span><span class="fu">max_non_numeric_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.01</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">  # FAIL if row count drops below this (0 = disabled)</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="at">  </span><span class="fu">min_row_count</span><span class="kw">:</span><span class="at"> </span><span class="dv">0</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">  # Version-comparison thresholds (used when a previous file is available)</span></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="at">  </span><span class="fu">max_row_count_change_pct</span><span class="kw">:</span><span class="at">       </span><span class="fl">0.10</span></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="at">  </span><span class="fu">max_numeric_mean_shift_pct</span><span class="kw">:</span><span class="at">     </span><span class="fl">0.20</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="at">  </span><span class="fu">max_missing_rate_change_pp</span><span class="kw">:</span><span class="at">     </span><span class="fl">2.0</span><span class="co">    # percentage points</span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a><span class="at">  </span><span class="fu">max_non_numeric_rate_change_pp</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span></span>
+<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_new_columns</span><span class="kw">:</span><span class="at">         </span><span class="ch">true</span><span class="co">   # set false to suppress new-column warnings in CP-02</span></span>
+<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_dropped_columns</span><span class="kw">:</span><span class="at">     </span><span class="ch">true</span><span class="co">   # set false to suppress dropped-column warnings in CP-02</span></span>
+<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_type_changes</span><span class="kw">:</span><span class="at">        </span><span class="ch">true</span><span class="co">   # set false to suppress type-change warnings in CP-02</span></span>
+<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_column_order_change</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">   # set false to skip CP-08 entirely (WARN CSV / FAIL FWF)</span></span></code></pre></div>
+</div>
+<div id="per-dataset-config-dataset_name.yml" class="section level3">
+<h3>Per-dataset config — <code>&lt;dataset_name&gt;.yml</code></h3>
+<p>One file per dataset. Only the keys you specify are needed —
+everything else inherits from the global defaults.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">dataset_name</span><span class="kw">:</span><span class="at"> </span><span class="st">&quot;customer_accounts&quot;</span><span class="co">   # for human reference only — the functional</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co">                                     # identifier is the YAML filename, which must</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co">                                     # match the dataset_name argument to run_dq_check()</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co"># --- File location ---</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co"># Option A: folder scan (two most recently modified files are used)</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="fu">folder</span><span class="kw">:</span><span class="at"> </span><span class="st">&quot;data/incoming/customer_accounts/&quot;</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co"># Option B: explicit paths (set current_file only → single-file mode,</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">#           no version comparison)</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co"># current_file:  &quot;data/incoming/customer_accounts/20260410.csv&quot;</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co"># previous_file: &quot;data/incoming/customer_accounts/20260401.csv&quot;</span></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="fu">format</span><span class="kw">:</span><span class="at">    csv</span></span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="fu">encoding</span><span class="kw">:</span><span class="at">  </span><span class="st">&quot;UTF-8&quot;</span></span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="fu">delimiter</span><span class="kw">:</span><span class="at"> </span><span class="st">&quot;,&quot;</span></span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a></span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="co"># --- Schema contract (optional) ---</span></span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a><span class="co"># SC-01 flags extra columns; SC-02 flags missing columns.</span></span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a><span class="fu">expected_columns</span><span class="kw">:</span></span>
+<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> id</span></span>
+<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> name</span></span>
+<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> country_code</span></span>
+<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> account_status</span></span>
+<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> account_balance</span></span>
+<span id="cb5-26"><a href="#cb5-26" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> created_date</span></span>
+<span id="cb5-27"><a href="#cb5-27" tabindex="-1"></a></span>
+<span id="cb5-28"><a href="#cb5-28" tabindex="-1"></a><span class="co"># --- Key columns (optional) ---</span></span>
+<span id="cb5-29"><a href="#cb5-29" tabindex="-1"></a><span class="co"># QC-12 checks each for duplicate values.</span></span>
+<span id="cb5-30"><a href="#cb5-30" tabindex="-1"></a><span class="fu">key_columns</span><span class="kw">:</span></span>
+<span id="cb5-31"><a href="#cb5-31" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> id</span></span>
+<span id="cb5-32"><a href="#cb5-32" tabindex="-1"></a></span>
+<span id="cb5-33"><a href="#cb5-33" tabindex="-1"></a><span class="co"># --- Rule overrides (optional) ---</span></span>
+<span id="cb5-34"><a href="#cb5-34" tabindex="-1"></a><span class="co"># These replace the matching keys in default_rules for this dataset only.</span></span>
+<span id="cb5-35"><a href="#cb5-35" tabindex="-1"></a><span class="fu">rule_overrides</span><span class="kw">:</span></span>
+<span id="cb5-36"><a href="#cb5-36" tabindex="-1"></a><span class="at">  </span><span class="fu">max_missing_rate</span><span class="kw">:</span><span class="at">        </span><span class="fl">0.02</span></span>
+<span id="cb5-37"><a href="#cb5-37" tabindex="-1"></a><span class="at">  </span><span class="fu">max_row_count_change_pct</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.05</span></span>
+<span id="cb5-38"><a href="#cb5-38" tabindex="-1"></a><span class="at">  </span><span class="fu">min_row_count</span><span class="kw">:</span><span class="at">           </span><span class="dv">1000</span></span>
+<span id="cb5-39"><a href="#cb5-39" tabindex="-1"></a></span>
+<span id="cb5-40"><a href="#cb5-40" tabindex="-1"></a><span class="co"># --- Per-column rules (optional) ---</span></span>
+<span id="cb5-41"><a href="#cb5-41" tabindex="-1"></a><span class="fu">column_rules</span><span class="kw">:</span></span>
+<span id="cb5-42"><a href="#cb5-42" tabindex="-1"></a><span class="at">  </span><span class="fu">country_code</span><span class="kw">:</span></span>
+<span id="cb5-43"><a href="#cb5-43" tabindex="-1"></a><span class="at">    </span><span class="fu">allowed_values</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">&quot;GB&quot;</span><span class="kw">,</span><span class="at"> </span><span class="st">&quot;US&quot;</span><span class="kw">,</span><span class="at"> </span><span class="st">&quot;DE&quot;</span><span class="kw">,</span><span class="at"> </span><span class="st">&quot;FR&quot;</span><span class="kw">]</span><span class="co">   # QC-09</span></span>
+<span id="cb5-44"><a href="#cb5-44" tabindex="-1"></a><span class="at">    </span><span class="fu">pattern</span><span class="kw">:</span><span class="at"> </span><span class="st">&quot;^[A-Z]{2}$&quot;</span><span class="co">                       # QC-13</span></span>
+<span id="cb5-45"><a href="#cb5-45" tabindex="-1"></a><span class="at">  </span><span class="fu">account_status</span><span class="kw">:</span></span>
+<span id="cb5-46"><a href="#cb5-46" tabindex="-1"></a><span class="at">    </span><span class="fu">allowed_values</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">&quot;ACTIVE&quot;</span><span class="kw">,</span><span class="at"> </span><span class="st">&quot;CLOSED&quot;</span><span class="kw">,</span><span class="at"> </span><span class="st">&quot;SUSPENDED&quot;</span><span class="kw">]</span></span>
+<span id="cb5-47"><a href="#cb5-47" tabindex="-1"></a><span class="at">  </span><span class="fu">account_balance</span><span class="kw">:</span></span>
+<span id="cb5-48"><a href="#cb5-48" tabindex="-1"></a><span class="at">    </span><span class="fu">min_value</span><span class="kw">:</span><span class="at"> </span><span class="dv">0</span><span class="co">                                 # QC-10</span></span>
+<span id="cb5-49"><a href="#cb5-49" tabindex="-1"></a><span class="at">    </span><span class="fu">max_value</span><span class="kw">:</span><span class="at"> </span><span class="dv">1000000</span></span>
+<span id="cb5-50"><a href="#cb5-50" tabindex="-1"></a></span>
+<span id="cb5-51"><a href="#cb5-51" tabindex="-1"></a><span class="co"># --- Custom checks (optional) ---</span></span>
+<span id="cb5-52"><a href="#cb5-52" tabindex="-1"></a><span class="co"># custom_checks_file: &quot;custom/customer_accounts_checks.R&quot;</span></span>
+<span id="cb5-53"><a href="#cb5-53" tabindex="-1"></a></span>
+<span id="cb5-54"><a href="#cb5-54" tabindex="-1"></a><span class="co"># --- Output paths (optional, override global) ---</span></span>
+<span id="cb5-55"><a href="#cb5-55" tabindex="-1"></a><span class="co"># snapshot_db:       &quot;data/snapshots.sqlite&quot;</span></span>
+<span id="cb5-56"><a href="#cb5-56" tabindex="-1"></a><span class="co"># report_output_dir: &quot;reports/&quot;</span></span></code></pre></div>
+</div>
+<div id="what-is-required-vs-optional" class="section level3">
+<h3>What is required vs optional</h3>
+<p>The only fields the package requires to run are the file location
+(<code>folder</code> or <code>current_file</code>) and the
+<code>format</code>. Every other config key is optional — the
+corresponding checks are simply skipped when the key is absent.</p>
+<table>
+<colgroup>
+<col width="50%" />
+<col width="50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Config key</th>
+<th>Skipped / default when absent</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>key_columns</code></td>
+<td>QC-12 (key uniqueness) skipped</td>
+</tr>
+<tr class="even">
+<td><code>expected_columns</code></td>
+<td>SC-01 and SC-02 (schema contract) skipped</td>
+</tr>
+<tr class="odd">
+<td><code>column_rules.allowed_values</code></td>
+<td>QC-09 (allowed values) skipped</td>
+</tr>
+<tr class="even">
+<td><code>column_rules.min_value</code> / <code>max_value</code></td>
+<td>QC-10 (numeric bounds) skipped</td>
+</tr>
+<tr class="odd">
+<td><code>column_rules.pattern</code></td>
+<td>QC-13 (pattern / regex) skipped</td>
+</tr>
+<tr class="even">
+<td><code>custom_checks_file</code></td>
+<td>All custom checks skipped</td>
+</tr>
+<tr class="odd">
+<td><code>previous_file</code> / second file in folder</td>
+<td>All CP-01–CP-08 (version comparison) skipped</td>
+</tr>
+<tr class="even">
+<td><code>min_row_count</code> set to 0</td>
+<td>QC-14 (minimum row count) skipped</td>
+</tr>
+<tr class="odd">
+<td><code>type_inference_threshold</code></td>
+<td>Defaults to 0.90 (affects QC-06, QC-07, QC-08, QC-11, CP-02, CP-04,
+CP-05, CP-06, CP-07)</td>
+</tr>
+<tr class="even">
+<td><code>flag_new_columns</code></td>
+<td>Defaults to <code>true</code>; set to <code>false</code> to suppress
+new-column warnings in CP-02 (still tracked in SQLite)</td>
+</tr>
+<tr class="odd">
+<td><code>flag_dropped_columns</code></td>
+<td>Defaults to <code>true</code>; set to <code>false</code> to suppress
+dropped-column warnings in CP-02 (still tracked in SQLite)</td>
+</tr>
+<tr class="even">
+<td><code>flag_type_changes</code></td>
+<td>Defaults to <code>true</code>; set to <code>false</code> to suppress
+type-change warnings in CP-02</td>
+</tr>
+<tr class="odd">
+<td><code>flag_column_order_change</code></td>
+<td>Defaults to <code>true</code>; set to <code>false</code> to skip
+CP-08 entirely</td>
+</tr>
+</tbody>
+</table>
+<p>A minimal dataset config that runs basic checks with no column-level
+rules:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">dataset_name</span><span class="kw">:</span><span class="at"> </span><span class="st">&quot;my_dataset&quot;</span><span class="co">           # for reference; must match the YAML filename</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="fu">current_file</span><span class="kw">:</span><span class="at"> </span><span class="st">&quot;data/incoming/my_dataset.csv&quot;</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="fu">format</span><span class="kw">:</span><span class="at"> csv</span></span></code></pre></div>
+</div>
+<div id="fixed-width-files" class="section level3">
+<h3>Fixed-width files</h3>
+<p>For fixed-width files, set <code>format: fwf</code> and supply column
+widths and names. If the file has a header row, set
+<code>fwf_skip: 1</code> to skip it.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">format</span><span class="kw">:</span><span class="at"> fwf</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="fu">fwf_skip</span><span class="kw">:</span><span class="at"> </span><span class="dv">1</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="fu">fwf_widths</span><span class="kw">:</span><span class="at">    </span><span class="kw">[</span><span class="dv">10</span><span class="kw">,</span><span class="at"> </span><span class="dv">20</span><span class="kw">,</span><span class="at"> </span><span class="dv">3</span><span class="kw">,</span><span class="at"> </span><span class="dv">10</span><span class="kw">,</span><span class="at"> </span><span class="dv">12</span><span class="kw">,</span><span class="at"> </span><span class="dv">11</span><span class="kw">]</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="fu">fwf_col_names</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">id</span><span class="kw">,</span><span class="at"> name</span><span class="kw">,</span><span class="at"> country_code</span><span class="kw">,</span><span class="at"> account_status</span><span class="kw">,</span><span class="at"> account_balance</span><span class="kw">,</span><span class="at"> created_date</span><span class="kw">]</span></span></code></pre></div>
+<hr />
+</div>
+</div>
+<div id="the-quality-checks" class="section level2">
+<h2>The quality checks</h2>
+<p>Each check returns one or more <code>dq_result</code> objects with
+four key fields: <code>check_id</code>, <code>status</code>
+(<code>PASS</code> / <code>WARN</code> / <code>FAIL</code> /
+<code>INFO</code>), <code>observed</code>, and <code>message</code>. The
+overall run status is the worst single status across all checks.</p>
+<div id="single-snapshot-checks-qc-series" class="section level3">
+<h3>Single-snapshot checks (QC series)</h3>
+<p>These run on the current file alone.</p>
+<table>
+<colgroup>
+<col width="12%" />
+<col width="18%" />
+<col width="39%" />
+<col width="30%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>ID</th>
+<th>Name</th>
+<th>Triggers on</th>
+<th>Severity</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>QC-01</td>
+<td>Missing rate</td>
+<td>Column missing rate &gt; <code>max_missing_rate</code></td>
+<td>FAIL</td>
+</tr>
+<tr class="even">
+<td>QC-02</td>
+<td>Empty column</td>
+<td>Column is 100% empty</td>
+<td>FAIL</td>
+</tr>
+<tr class="odd">
+<td>QC-03</td>
+<td>Duplicate rows</td>
+<td>Any fully-identical rows</td>
+<td>WARN</td>
+</tr>
+<tr class="even">
+<td>QC-04</td>
+<td>Row count</td>
+<td>Always</td>
+<td>INFO</td>
+</tr>
+<tr class="odd">
+<td>QC-05</td>
+<td>Column count</td>
+<td>Always</td>
+<td>INFO</td>
+</tr>
+<tr class="even">
+<td>QC-06</td>
+<td>Inferred type</td>
+<td>Always (date / numeric / character / unknown)</td>
+<td>INFO</td>
+</tr>
+<tr class="odd">
+<td>QC-07</td>
+<td>Numeric stats</td>
+<td>Numeric columns (min, max, mean, SD)</td>
+<td>INFO</td>
+</tr>
+<tr class="even">
+<td>QC-08</td>
+<td>Distinct count</td>
+<td>Character columns</td>
+<td>INFO</td>
+</tr>
+<tr class="odd">
+<td>QC-09</td>
+<td>Allowed values</td>
+<td>Values outside <code>allowed_values</code> list</td>
+<td>FAIL</td>
+</tr>
+<tr class="even">
+<td>QC-10</td>
+<td>Numeric bounds</td>
+<td>Values outside <code>min_value</code> / <code>max_value</code></td>
+<td>FAIL</td>
+</tr>
+<tr class="odd">
+<td>QC-11</td>
+<td>Non-numeric values</td>
+<td>Non-numeric values in a numeric column</td>
+<td>WARN / FAIL</td>
+</tr>
+<tr class="even">
+<td>QC-12</td>
+<td>Key uniqueness</td>
+<td>Duplicate values in a <code>key_columns</code> column</td>
+<td>FAIL</td>
+</tr>
+<tr class="odd">
+<td>QC-13</td>
+<td>Pattern / regex</td>
+<td>Values not matching <code>pattern</code></td>
+<td>FAIL</td>
+</tr>
+<tr class="even">
+<td>QC-14</td>
+<td>Minimum row count</td>
+<td>Row count below <code>min_row_count</code></td>
+<td>FAIL</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="schema-contract-checks-sc-series" class="section level3">
+<h3>Schema contract checks (SC series)</h3>
+<p>Only run when <code>expected_columns</code> is set.</p>
+<table>
+<colgroup>
+<col width="12%" />
+<col width="18%" />
+<col width="39%" />
+<col width="30%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>ID</th>
+<th>Name</th>
+<th>Triggers on</th>
+<th>Severity</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>SC-01</td>
+<td>Unexpected column</td>
+<td>Column in file not in <code>expected_columns</code></td>
+<td>FAIL</td>
+</tr>
+<tr class="even">
+<td>SC-02</td>
+<td>Missing expected column</td>
+<td>Column in <code>expected_columns</code> absent from file</td>
+<td>FAIL</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="version-comparison-checks-cp-series" class="section level3">
+<h3>Version comparison checks (CP series)</h3>
+<p>Only run when a previous file is available. Skipped automatically in
+single-file mode.</p>
+<table>
+<colgroup>
+<col width="12%" />
+<col width="18%" />
+<col width="39%" />
+<col width="30%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>ID</th>
+<th>Name</th>
+<th>Triggers on</th>
+<th>Severity</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>CP-01</td>
+<td>Row count change</td>
+<td>Change &gt; <code>max_row_count_change_pct</code></td>
+<td>WARN</td>
+</tr>
+<tr class="even">
+<td>CP-02</td>
+<td>Schema diff</td>
+<td>Columns added, dropped, or type-changed</td>
+<td>WARN</td>
+</tr>
+<tr class="odd">
+<td>CP-03</td>
+<td>Missing rate change</td>
+<td>Increase &gt; <code>max_missing_rate_change_pp</code> pp</td>
+<td>WARN</td>
+</tr>
+<tr class="even">
+<td>CP-04</td>
+<td>Numeric mean shift</td>
+<td>Shift &gt; <code>max_numeric_mean_shift_pct</code></td>
+<td>WARN</td>
+</tr>
+<tr class="odd">
+<td>CP-05</td>
+<td>New distinct values</td>
+<td>Values in current not seen in previous</td>
+<td>INFO</td>
+</tr>
+<tr class="even">
+<td>CP-06</td>
+<td>Dropped distinct values</td>
+<td>Values in previous absent from current</td>
+<td>INFO</td>
+</tr>
+<tr class="odd">
+<td>CP-07</td>
+<td>Non-numeric rate change</td>
+<td>Increase &gt; <code>max_non_numeric_rate_change_pp</code> pp</td>
+<td>WARN</td>
+</tr>
+<tr class="even">
+<td>CP-08</td>
+<td>Column order change</td>
+<td>Column order differs from previous</td>
+<td>WARN (CSV) / FAIL (FWF)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+</div>
+</div>
+<div id="type-inference" class="section level2">
+<h2>Type inference</h2>
+<p><code>infer_col_type()</code> classifies each column after whitespace
+trimming. Rules are applied in priority order:</p>
+<ol style="list-style-type: decimal">
+<li><strong>date</strong> — all non-empty values parse as a known date
+format (<code>%Y-%m-%d</code>, <code>%d/%m/%Y</code>,
+<code>%m/%d/%Y</code>, <code>%Y%m%d</code>, <code>%d-%m-%Y</code>)</li>
+<li><strong>numeric</strong> — ≥ <code>type_inference_threshold</code>
+of non-empty values coerce to numeric</li>
+<li><strong>character</strong> — everything else</li>
+<li><strong>unknown</strong> — all values are empty or
+<code>NA</code></li>
+</ol>
+<p>The threshold defaults to 90%, meaning a column with up to 10% bad
+values is still classified as numeric, making those bad values visible
+to QC-11 (non-numeric contamination). It is configurable per dataset via
+<code>type_inference_threshold</code> in <code>default_rules</code> or
+<code>rule_overrides</code>:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># raise threshold — stricter, fewer columns classified as numeric</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="fu">rule_overrides</span><span class="kw">:</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="at">  </span><span class="fu">type_inference_threshold</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.95</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co"># lower threshold — more lenient, columns with more noise still classified numeric</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="fu">rule_overrides</span><span class="kw">:</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="at">  </span><span class="fu">type_inference_threshold</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.80</span></span></code></pre></div>
+<p>Changing the threshold affects QC-06, QC-07, QC-08, QC-11, CP-02,
+CP-04, CP-05, CP-06, and CP-07. Note that changing it between runs may
+cause CP-02 to report a spurious type change on columns that sit close
+to the old and new thresholds, even if the underlying data did not
+change.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">infer_col_type</span>(<span class="fu">c</span>(<span class="st">&quot;2024-01-15&quot;</span>, <span class="st">&quot;2024-06-30&quot;</span>))  <span class="co"># &quot;date&quot;</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="fu">infer_col_type</span>(<span class="fu">c</span>(<span class="st">&quot;100&quot;</span>, <span class="st">&quot;200&quot;</span>, <span class="st">&quot;N/A&quot;</span>))          <span class="co"># &quot;character&quot; (only 67% numeric)</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="fu">infer_col_type</span>(<span class="fu">c</span>(<span class="st">&quot;100&quot;</span>, <span class="st">&quot;200&quot;</span>, <span class="st">&quot;N/A&quot;</span>, <span class="fu">rep</span>(<span class="st">&quot;50&quot;</span>, <span class="dv">17</span>)))  <span class="co"># &quot;numeric&quot; (95% numeric)</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="fu">infer_col_type</span>(<span class="fu">c</span>(<span class="cn">NA</span>, <span class="st">&quot;&quot;</span>, <span class="cn">NA</span>))                   <span class="co"># &quot;unknown&quot;</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="co"># with a custom threshold:</span></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="fu">infer_col_type</span>(<span class="fu">c</span>(<span class="fu">rep</span>(<span class="st">&quot;1&quot;</span>, <span class="dv">17</span>), <span class="st">&quot;a&quot;</span>, <span class="st">&quot;b&quot;</span>, <span class="st">&quot;c&quot;</span>), <span class="at">threshold =</span> <span class="fl">0.80</span>)  <span class="co"># &quot;numeric&quot; (85%)</span></span></code></pre></div>
+<hr />
+</div>
+<div id="running-a-check" class="section level2">
+<h2>Running a check</h2>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">run_dq_check</span>(</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="at">dataset_name =</span> <span class="st">&quot;customer_accounts&quot;</span>,</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="at">config_dir   =</span> <span class="st">&quot;path/to/configs&quot;</span>,   <span class="co"># contains dqcheckr.yml + customer_accounts.yml</span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="at">open_report  =</span> <span class="cn">TRUE</span>                 <span class="co"># open HTML in browser when interactive</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>)</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="co"># Console output (always printed):</span></span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co"># [dqcheckr] customer_accounts: FAIL - 1 warning(s), 2 failure(s). Report: reports/...html</span></span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>result<span class="sc">$</span>status       <span class="co"># &quot;PASS&quot;, &quot;WARN&quot;, or &quot;FAIL&quot;</span></span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a>result<span class="sc">$</span>report_path  <span class="co"># full path to the HTML file</span></span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a>result<span class="sc">$</span>snapshot_id  <span class="co"># integer row ID in snapshots table</span></span></code></pre></div>
+<p>The HTML report contains:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Header</strong> — dataset name, file name, run time, overall
+status badge</li>
+<li><strong>File summary</strong> — row count, column count, file size,
+format, encoding</li>
+<li><strong>Quality checks table</strong> — every check result, failures
+first</li>
+<li><strong>Custom checks table</strong> — if configured</li>
+<li><strong>Version comparison</strong> — what changed since the
+previous delivery</li>
+<li><strong>Historical trend</strong> — row count and check outcomes
+across the last 10 runs (appears once at least two runs have been
+recorded)</li>
+<li><strong>Appendix</strong> — full column-level statistics table</li>
+</ol>
+<hr />
+</div>
+<div id="calling-individual-checks" class="section level2">
+<h2>Calling individual checks</h2>
+<p>You can call any check function directly, without going through the
+full pipeline. Every check takes <code>(df, config)</code> and returns a
+list of <code>dq_result</code> objects.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">library</span>(dqcheckr)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="co"># Build a minimal config programmatically</span></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>cfg <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>  <span class="at">rules =</span> <span class="fu">list</span>(</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>    <span class="at">max_missing_rate     =</span> <span class="fl">0.05</span>,</span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>    <span class="at">max_non_numeric_rate =</span> <span class="fl">0.01</span>,</span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>    <span class="at">min_row_count        =</span> <span class="dv">0</span></span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a>  ),</span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a>  <span class="at">column_rules     =</span> <span class="fu">list</span>(</span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a>    <span class="at">status =</span> <span class="fu">list</span>(<span class="at">allowed_values =</span> <span class="fu">c</span>(<span class="st">&quot;ACTIVE&quot;</span>, <span class="st">&quot;CLOSED&quot;</span>))</span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a>  ),</span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a>  <span class="at">key_columns      =</span> <span class="st">&quot;id&quot;</span>,</span>
+<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a>  <span class="at">expected_columns =</span> <span class="cn">NULL</span></span>
+<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a>)</span>
+<span id="cb11-16"><a href="#cb11-16" tabindex="-1"></a></span>
+<span id="cb11-17"><a href="#cb11-17" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">&quot;data/customer_accounts.csv&quot;</span>, <span class="at">colClasses =</span> <span class="st">&quot;character&quot;</span>)</span>
+<span id="cb11-18"><a href="#cb11-18" tabindex="-1"></a>df[] <span class="ot">&lt;-</span> <span class="fu">lapply</span>(df, trimws)</span>
+<span id="cb11-19"><a href="#cb11-19" tabindex="-1"></a></span>
+<span id="cb11-20"><a href="#cb11-20" tabindex="-1"></a><span class="co"># Run a single check</span></span>
+<span id="cb11-21"><a href="#cb11-21" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">check_missing_rate</span>(df, cfg)</span>
+<span id="cb11-22"><a href="#cb11-22" tabindex="-1"></a></span>
+<span id="cb11-23"><a href="#cb11-23" tabindex="-1"></a><span class="co"># Inspect</span></span>
+<span id="cb11-24"><a href="#cb11-24" tabindex="-1"></a>results[[<span class="dv">1</span>]]<span class="sc">$</span>status    <span class="co"># &quot;PASS&quot; or &quot;FAIL&quot;</span></span>
+<span id="cb11-25"><a href="#cb11-25" tabindex="-1"></a>results[[<span class="dv">1</span>]]<span class="sc">$</span>observed  <span class="co"># e.g. &quot;3.2% missing (4 of 125)&quot;</span></span>
+<span id="cb11-26"><a href="#cb11-26" tabindex="-1"></a></span>
+<span id="cb11-27"><a href="#cb11-27" tabindex="-1"></a><span class="co"># Run all single-snapshot checks at once</span></span>
+<span id="cb11-28"><a href="#cb11-28" tabindex="-1"></a>all_results <span class="ot">&lt;-</span> <span class="fu">run_qc_checks</span>(df, cfg)</span>
+<span id="cb11-29"><a href="#cb11-29" tabindex="-1"></a></span>
+<span id="cb11-30"><a href="#cb11-30" tabindex="-1"></a><span class="co"># Overall status</span></span>
+<span id="cb11-31"><a href="#cb11-31" tabindex="-1"></a><span class="fu">overall_status</span>(all_results)  <span class="co"># &quot;FAIL&quot; &gt; &quot;WARN&quot; &gt; &quot;PASS&quot; &gt; &quot;INFO&quot;</span></span></code></pre></div>
+<hr />
+</div>
+<div id="custom-checks" class="section level2">
+<h2>Custom checks</h2>
+<p>Create a plain <code>.R</code> file that defines
+<code>custom_checks(df)</code>. It receives the trimmed data frame and
+must return a list of <code>dq_result</code> objects.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co"># File: custom/customer_accounts_checks.R</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>custom_checks <span class="ot">&lt;-</span> <span class="cf">function</span>(df) {</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  results <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a></span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="co"># Rule: ACTIVE accounts must not have a zero balance</span></span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  active_zero <span class="ot">&lt;-</span> df[df<span class="sc">$</span>account_status <span class="sc">==</span> <span class="st">&quot;ACTIVE&quot;</span> <span class="sc">&amp;</span></span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>                    <span class="sc">!</span><span class="fu">is.na</span>(df<span class="sc">$</span>account_balance) <span class="sc">&amp;</span></span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>                    df<span class="sc">$</span>account_balance <span class="sc">==</span> <span class="st">&quot;0&quot;</span>, ]</span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>  n <span class="ot">&lt;-</span> <span class="fu">nrow</span>(active_zero)</span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a>  results <span class="ot">&lt;-</span> <span class="fu">c</span>(results, <span class="fu">list</span>(<span class="fu">dq_result</span>(</span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a>    <span class="at">check_id   =</span> <span class="st">&quot;CUST-01&quot;</span>,</span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a>    <span class="at">check_name =</span> <span class="st">&quot;No zero-balance active accounts&quot;</span>,</span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a>    <span class="at">column     =</span> <span class="st">&quot;account_balance&quot;</span>,   <span class="co"># enables per-column storage in SQLite</span></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a>    <span class="at">status     =</span> <span class="cf">if</span> (n <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="st">&quot;FAIL&quot;</span> <span class="cf">else</span> <span class="st">&quot;PASS&quot;</span>,</span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a>    <span class="at">observed   =</span> <span class="fu">sprintf</span>(<span class="st">&quot;%d ACTIVE account(s) with balance 0&quot;</span>, n),</span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a>    <span class="at">message    =</span> <span class="cf">if</span> (n <span class="sc">&gt;</span> <span class="dv">0</span>)</span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a>      <span class="fu">sprintf</span>(<span class="st">&quot;%d ACTIVE account(s) have a zero balance.&quot;</span>, n)</span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a>    <span class="cf">else</span></span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a>      <span class="st">&quot;No ACTIVE accounts have a zero balance.&quot;</span></span>
+<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a>  )))</span>
+<span id="cb12-22"><a href="#cb12-22" tabindex="-1"></a></span>
+<span id="cb12-23"><a href="#cb12-23" tabindex="-1"></a>  results</span>
+<span id="cb12-24"><a href="#cb12-24" tabindex="-1"></a>}</span></code></pre></div>
+<p>Point to it in the dataset config:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">custom_checks_file</span><span class="kw">:</span><span class="at"> </span><span class="st">&quot;custom/customer_accounts_checks.R&quot;</span></span></code></pre></div>
+<p>The file is sourced in an isolated environment (not the global
+session). <code>dq_result()</code> is available inside it. Any error —
+missing file, undefined function, runtime failure — stops the run with a
+clear message.</p>
+<p><strong>Tip</strong>: always set <code>column =</code> when your
+check is scoped to a specific column. Results with
+<code>column = NA</code> (the default) appear in the HTML report and
+contribute to the overall status, but are not written to the
+<code>column_snapshots</code> SQLite table and therefore do not appear
+in per-column trend queries.</p>
+<hr />
+</div>
+<div id="the-snapshot-database" class="section level2">
+<h2>The snapshot database</h2>
+<p>Every run writes two rows to a shared SQLite database: one row in
+<code>snapshots</code> (run-level summary) and one row per column-stat
+in <code>column_snapshots</code>.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">library</span>(DBI)</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="fu">library</span>(RSQLite)</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>con <span class="ot">&lt;-</span> <span class="fu">dbConnect</span>(<span class="fu">SQLite</span>(), <span class="st">&quot;data/snapshots.sqlite&quot;</span>)</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a></span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a><span class="co"># Recent runs for one dataset</span></span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a><span class="fu">dbGetQuery</span>(con,</span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>  <span class="st">&quot;SELECT id, file_name, overall_status, check_fail_count, run_timestamp</span></span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a><span class="st">   FROM snapshots</span></span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a><span class="st">   WHERE dataset_name = &#39;customer_accounts&#39;</span></span>
+<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a><span class="st">   ORDER BY id DESC</span></span>
+<span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a><span class="st">   LIMIT 10&quot;</span>)</span>
+<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a></span>
+<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a><span class="co"># Column-level stats for the most recent run</span></span>
+<span id="cb14-15"><a href="#cb14-15" tabindex="-1"></a><span class="fu">dbGetQuery</span>(con,</span>
+<span id="cb14-16"><a href="#cb14-16" tabindex="-1"></a>  <span class="st">&quot;SELECT column_name, dq_check, value, threshold</span></span>
+<span id="cb14-17"><a href="#cb14-17" tabindex="-1"></a><span class="st">   FROM column_snapshots</span></span>
+<span id="cb14-18"><a href="#cb14-18" tabindex="-1"></a><span class="st">   WHERE snapshot_id = (</span></span>
+<span id="cb14-19"><a href="#cb14-19" tabindex="-1"></a><span class="st">     SELECT MAX(id) FROM snapshots WHERE dataset_name = &#39;customer_accounts&#39;</span></span>
+<span id="cb14-20"><a href="#cb14-20" tabindex="-1"></a><span class="st">   )</span></span>
+<span id="cb14-21"><a href="#cb14-21" tabindex="-1"></a><span class="st">   ORDER BY column_name, dq_check&quot;</span>)</span>
+<span id="cb14-22"><a href="#cb14-22" tabindex="-1"></a></span>
+<span id="cb14-23"><a href="#cb14-23" tabindex="-1"></a><span class="fu">dbDisconnect</span>(con)</span></code></pre></div>
+<p>Because all datasets share one database, you can query across
+them:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">dbGetQuery</span>(con,</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>  <span class="st">&quot;SELECT dataset_name, COUNT(*) AS runs,</span></span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a><span class="st">          SUM(check_fail_count) AS total_failures</span></span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="st">   FROM snapshots</span></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a><span class="st">   GROUP BY dataset_name&quot;</span>)</span></code></pre></div>
+<p>The <code>output/</code> directory (and database file) are created
+automatically on the first run if they do not exist.</p>
+<hr />
+</div>
+<div id="worked-example-star-wars-dataset" class="section level2">
+<h2>Worked example — Star Wars dataset</h2>
+<p>The following uses <code>dplyr::starwars</code> exported to CSV and
+fixed-width files.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="co"># Config directory contains:</span></span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="co">#   dqcheckr.yml         — global thresholds</span></span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a><span class="co">#   starwars_csv.yml     — CSV dataset config</span></span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a><span class="co">#   starwars_fwf.yml     — FWF dataset config</span></span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a></span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a><span class="co"># Run checks on both formats</span></span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a>result_csv <span class="ot">&lt;-</span> <span class="fu">run_dq_check</span>(<span class="st">&quot;starwars_csv&quot;</span>, <span class="at">config_dir =</span> <span class="st">&quot;config&quot;</span>, <span class="at">open_report =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a>result_fwf <span class="ot">&lt;-</span> <span class="fu">run_dq_check</span>(<span class="st">&quot;starwars_fwf&quot;</span>, <span class="at">config_dir =</span> <span class="st">&quot;config&quot;</span>, <span class="at">open_report =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<p>The Star Wars config sets <code>max_missing_rate: 0.60</code> because
+<code>vehicles</code> (87%) and <code>starships</code> (77%) are
+naturally sparse — most characters have none. Both columns FAIL, which
+is the correct finding: they are genuinely incomplete and a consumer
+should be aware before using them.</p>
+<p>Expected console output:</p>
+<pre><code>[dqcheckr] starwars_csv: FAIL - 0 warning(s), 2 failure(s). Report: output/reports/starwars_csv_....html
+[dqcheckr] starwars_fwf: FAIL - 0 warning(s), 2 failure(s). Report: output/reports/starwars_fwf_....html</code></pre>
+<hr />
+</div>
+<div id="error-handling" class="section level2">
+<h2>Error handling</h2>
+<table>
+<colgroup>
+<col width="50%" />
+<col width="50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Situation</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Config file not found</td>
+<td>Stop immediately; no output written</td>
+</tr>
+<tr class="even">
+<td>Data file not found</td>
+<td>Stop immediately; no output written</td>
+</tr>
+<tr class="odd">
+<td>Only one file available</td>
+<td>Single-file mode; CP checks skipped</td>
+</tr>
+<tr class="even">
+<td>File cannot be parsed</td>
+<td>Stop with filename and parse error</td>
+</tr>
+<tr class="odd">
+<td>SC-01 / SC-02 violations</td>
+<td>FAIL recorded; run continues; report written</td>
+</tr>
+<tr class="even">
+<td>Custom checks file missing</td>
+<td>Stop with message</td>
+</tr>
+<tr class="odd">
+<td><code>custom_checks()</code> not defined</td>
+<td>Stop with message</td>
+</tr>
+<tr class="even">
+<td><code>custom_checks()</code> runtime error</td>
+<td>Stop with R error detail</td>
+</tr>
+<tr class="odd">
+<td>SQLite write fails</td>
+<td>Warning emitted; HTML report still written</td>
+</tr>
+</tbody>
+</table>
+<p>The package never modifies, moves, or deletes source files.</p>
+<hr />
+</div>
+<div id="design-principles" class="section level2">
+<h2>Design principles</h2>
+<p><strong>Owned and evolvable.</strong> Every check is plain R —
+readable, modifiable, and not hidden behind a third-party API.</p>
+<p><strong>Plain English outputs.</strong> Reports are written for data
+management staff, not engineers. No R code, no package names, no
+jargon.</p>
+<p><strong>Fail loudly.</strong> Configuration errors, missing files,
+and custom-check failures all stop the run with a clear message. Nothing
+is silently skipped.</p>
+<p><strong>Non-destructive.</strong> The package reads files and writes
+reports and database records. Source files are never touched.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
