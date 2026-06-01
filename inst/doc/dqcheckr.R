@@ -50,17 +50,33 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 # df <- read.csv("data/customer_accounts.csv", colClasses = "character")
 # df[] <- lapply(df, trimws)
 # 
-# # Run a single check
-# results <- check_missing_rate(df, cfg)
+# # Run any individual check
+# check_missing_rate(df, cfg)       # QC-01
+# check_empty_column(df, cfg)       # QC-02
+# check_duplicate_rows(df, cfg)     # QC-03
+# check_row_count(df, cfg)          # QC-04  (INFO)
+# check_col_count(df, cfg)          # QC-05  (INFO)
+# check_inferred_types(df, cfg)     # QC-06  (INFO)
+# check_numeric_stats(df, cfg)      # QC-07  (INFO)
+# check_distinct_counts(df, cfg)    # QC-08  (INFO)
+# check_allowed_values(df, cfg)     # QC-09
+# check_numeric_bounds(df, cfg)     # QC-10
+# check_non_numeric(df, cfg)        # QC-11
+# check_key_uniqueness(df, cfg)     # QC-12
+# check_pattern(df, cfg)            # QC-13
+# check_min_row_count(df, cfg)      # QC-14
+# check_outliers(df, cfg)           # QC-15
+# check_schema_contract(df, cfg)    # SC-01 / SC-02
 # 
-# # Inspect
-# results[[1]]$status    # "PASS" or "FAIL"
-# results[[1]]$observed  # e.g. "3.2% missing (4 of 125)"
+# # Inspect a result
+# r <- check_missing_rate(df, cfg)[[1]]
+# r$status    # "PASS" or "FAIL"
+# r$observed  # e.g. "3.2% missing (4 of 125)"
 # 
 # # Run all single-snapshot checks at once
 # all_results <- run_qc_checks(df, cfg)
 # 
-# # Overall status
+# # Overall status across any result list
 # overall_status(all_results)  # "FAIL" > "WARN" > "PASS" > "INFO"
 
 ## ----custom-file--------------------------------------------------------------

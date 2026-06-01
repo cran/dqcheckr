@@ -6,7 +6,27 @@
 \usage{
 check_duplicate_rows(df, config)
 }
-\description{
-QC-03: Check for fully-duplicate rows
+\arguments{
+\item{df}{A data frame with all columns as character vectors (as returned by
+\code{\link{read_dataset}}).}
+
+\item{config}{Named list. Merged configuration as returned by
+\code{\link{load_config}}. Currently unused; present for API consistency.}
 }
-\keyword{internal}
+\value{
+A list containing one \code{\link{dq_result}}.
+  Status is \code{"WARN"} if any duplicate rows exist; \code{"PASS"}
+  otherwise.
+}
+\description{
+Returns a single \code{\link{dq_result}} for the whole table. A row is
+considered a duplicate when every column value is identical to another row.
+}
+\examples{
+cfg_dir <- system.file("demonstrations/config", package = "dqcheckr")
+cfg  <- load_config("starwars_csv", config_dir = cfg_dir)
+path <- system.file("demonstrations/data/starwars.csv", package = "dqcheckr")
+df   <- read_dataset(path, cfg)
+check_duplicate_rows(df, cfg)
+
+}

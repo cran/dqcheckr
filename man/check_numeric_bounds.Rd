@@ -6,7 +6,29 @@
 \usage{
 check_numeric_bounds(df, config)
 }
-\description{
-QC-10: Check for out-of-range numeric values
+\arguments{
+\item{df}{A data frame with all columns as character vectors (as returned by
+\code{\link{read_dataset}}).}
+
+\item{config}{Named list. Merged configuration as returned by
+\code{\link{load_config}}.}
 }
-\keyword{internal}
+\value{
+A list of \code{\link{dq_result}} objects, one per configured column.
+  Status is \code{"FAIL"} when out-of-range values are found; \code{"PASS"}
+  otherwise. Returns an empty list if no bound rules are configured.
+}
+\description{
+For each column that has \code{min_value} or \code{max_value} configured in
+\code{config$column_rules}, returns a \code{\link{dq_result}} flagging any
+values that fall outside the specified range. Returns an empty list when no
+bound rules are configured.
+}
+\examples{
+cfg_dir <- system.file("demonstrations/config", package = "dqcheckr")
+cfg  <- load_config("starwars_csv", config_dir = cfg_dir)
+path <- system.file("demonstrations/data/starwars.csv", package = "dqcheckr")
+df   <- read_dataset(path, cfg)
+check_numeric_bounds(df, cfg)
+
+}

@@ -6,7 +6,28 @@
 \usage{
 check_distinct_counts(df, config)
 }
-\description{
-QC-08: Report distinct value counts for character columns
+\arguments{
+\item{df}{A data frame with all columns as character vectors (as returned by
+\code{\link{read_dataset}}).}
+
+\item{config}{Named list. Merged configuration as returned by
+\code{\link{load_config}}.}
 }
-\keyword{internal}
+\value{
+A list of \code{\link{dq_result}} objects (one per character column),
+  all with status \code{"INFO"}. Returns an empty list if no character
+  columns are found.
+}
+\description{
+For each column whose resolved type is \code{"character"}, returns one
+\code{"INFO"} \code{\link{dq_result}} with the count of distinct non-empty
+values. Columns inferred as numeric or date are silently skipped.
+}
+\examples{
+cfg_dir <- system.file("demonstrations/config", package = "dqcheckr")
+cfg  <- load_config("starwars_csv", config_dir = cfg_dir)
+path <- system.file("demonstrations/data/starwars.csv", package = "dqcheckr")
+df   <- read_dataset(path, cfg)
+check_distinct_counts(df, cfg)
+
+}

@@ -1,24 +1,12 @@
 ---
 title: "Data Quality Report"
-output:
-  html_document:
-    self_contained: true
+format:
+  html:
+    embed-resources: true
     theme: flatly
-    toc: true
-    toc_float: true
+    toc: false
 params:
-  dataset_name: ""
-  file_name: ""
-  file_path: ""
-  run_timestamp: ""
-  df: NULL
-  qc_results: NULL
-  cp_results: NULL
-  custom_results: NULL
-  snapshot_history: NULL
-  config: NULL
-  col_stats: NULL
-  overall_status: ""
+  rds_path: ""
 ---
 
 ```{r setup, include=FALSE}
@@ -28,21 +16,18 @@ library(kableExtra)
 library(ggplot2)
 library(dplyr)
 
+p <- readRDS(params$rds_path)
+
 `%||%` <- function(a, b) if (!is.null(a)) a else b
 
 status_colour <- function(s) {
-  switch(s,
-    FAIL = "red",
-    WARN = "orange",
-    PASS = "green",
-    INFO = "grey",
-    "grey"
-  )
+  switch(s, FAIL = "red", WARN = "orange", PASS = "green", INFO = "grey", "grey")
 }
 
 badge_html <- function(s) {
   col <- switch(s, FAIL = "#d9534f", WARN = "#f0ad4e", PASS = "#5cb85c", "#777")
-  sprintf('<span style="background:%s;color:#fff;padding:4px 10px;border-radius:4px;font-weight:bold;">%s</span>', col, s)
+  sprintf('<span style="background:%s;color:#fff;padding:4px 10px;border-radius:4px;font-weight:bold;">%s</span>',
+          col, s)
 }
 
 results_to_df <- function(results) {
@@ -81,31 +66,27 @@ colour_status_col <- function(df) {
 
 ## 1. Header
 
-**Dataset**: `r params$dataset_name`
-**File**: `r params$file_name`
-**Run time**: `r params$run_timestamp`
-**Overall status**: `r knitr::raw_html(badge_html(params$overall_status))`
+**Dataset**: `r p$dataset_name`
+**File**: `r p$file_name`
+**Run time**: `r p$run_timestamp`
+**Overall status**: `r knitr::raw_html(badge_html(p$overall_status))`
 
 ---
 
 ## 2. File summary
 
 ```{r file-summary}
-fsize <- tryCatch(file.info(params$file_path)$size, error = function(e) NA)
-fsize_str <- if (!is.na(fsize)) {
-  sprintf("%.1f KB", fsize / 1024)
-} else {
-  "N/A"
-}
+fsize <- tryCatch(file.info(p$file_path)$size, error = function(e) NA)
+fsize_str <- if (!is.na(fsize)) sprintf("%.1f KB", fsize / 1024) else "N/A"
 
 summary_df <- data.frame(
   Item  = c("Row count", "Column count", "File size", "Format", "Encoding"),
   Value = c(
-    as.character(nrow(params$df)),
-    as.character(ncol(params$df)),
+    as.character(nrow(p$df)),
+    as.character(ncol(p$df)),
     fsize_str,
-    toupper(params$config$format %||% "CSV"),
-    params$config$encoding %||% "UTF-8"
+    toupper(p$config$format %||% "CSV"),
+    p$config$encoding %||% "UTF-8"
   ),
   stringsAsFactors = FALSE
 )
@@ -119,7 +100,7 @@ kableExtra::kbl(summary_df, col.names = c("Item", "Value")) |>
 ## 3. Quality checks
 
 ```{r qc-table}
-qc_df <- results_to_df(params$qc_results)
+qc_df <- results_to_df(p$qc_results)
 if (nrow(qc_df) > 0) {
   qc_df <- sort_results_df(qc_df)
   qc_df <- colour_status_col(qc_df)
@@ -133,9 +114,9 @@ if (nrow(qc_df) > 0) {
 ---
 
 ```{r custom-section, results='asis'}
-if (length(params$custom_results) > 0) {
+if (length(p$custom_results) > 0) {
   cat("## Custom checks\n\n")
-  cc_df <- results_to_df(params$custom_results)
+  cc_df <- results_to_df(p$custom_results)
   cc_df <- sort_results_df(cc_df)
   cc_df <- colour_status_col(cc_df)
   print(kableExtra::kbl(cc_df, escape = FALSE) |>
@@ -145,15 +126,20 @@ if (length(params$custom_results) > 0) {
 ```
 
 ```{r comparison-section, results='asis'}
-if (length(params$cp_results) > 0) {
+if (length(p$cp_results) > 0) {
   cat("## Version comparison\n\n")
 
-  top_result <- params$cp_results[[which.min(
-    sapply(params$cp_results, \(r) status_order[r$status])
-  )]]
-  cat(sprintf("**Summary**: %s\n\n", top_result$message))
+  # C-05: show all FAIL/WARN messages as a bullet list
+  bad_results <- Filter(\(r) r$status %in% c("FAIL", "WARN"), p$cp_results)
+  if (length(bad_results) > 0) {
+    cat("**Issues found:**\n\n")
+    for (r in bad_results) cat(sprintf("- %s\n", r$message))
+    cat("\n")
+  } else {
+    cat("**Summary**: All comparison checks passed.\n\n")
+  }
 
-  cp_df <- results_to_df(params$cp_results)
+  cp_df <- results_to_df(p$cp_results)
   cp_df <- sort_results_df(cp_df)
   cp_df <- colour_status_col(cp_df)
   print(kableExtra::kbl(cp_df, escape = FALSE) |>
@@ -163,10 +149,11 @@ if (length(params$cp_results) > 0) {
 ```
 
 ```{r trend-header, results='asis'}
-hist <- params$snapshot_history
+hist <- p$snapshot_history
 show_trend <- !is.null(hist) && nrow(hist) >= 2
 if (show_trend) {
-  hist$run_timestamp <- as.POSIXct(hist$run_timestamp)
+  hist$run_timestamp <- as.POSIXct(hist$run_timestamp,
+                                    format = "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
   hist <- hist[order(hist$run_timestamp), ]
   cat("## Historical trend\n\n")
 }
@@ -182,9 +169,7 @@ if (show_trend) {
   hist_long <- tidyr::pivot_longer(
     hist[, c("run_timestamp", "check_pass_count",
              "check_warn_count", "check_fail_count")],
-    cols = -run_timestamp,
-    names_to  = "type",
-    values_to = "count"
+    cols = -run_timestamp, names_to = "type", values_to = "count"
   )
   hist_long$type <- gsub("check_|_count", "", hist_long$type)
 
@@ -205,14 +190,11 @@ if (show_trend) cat("\n\n---\n\n")
 
 ## Appendix - Column statistics
 
-Per-column statistics computed for this run. These correspond to the rows
-written to the `column_snapshots` table in the SQLite snapshot database
-(`column_name` -> Column, `dq_check` -> Stat, `value` -> Value,
-`threshold` -> Threshold, `severity_on_breach` -> Severity).
+Per-column statistics computed for this run.
 
 ```{r appendix}
-if (!is.null(params$col_stats)) {
-  col_stats <- params$col_stats
+if (!is.null(p$col_stats)) {
+  col_stats <- p$col_stats
   names(col_stats) <- c("Column", "Stat", "Value", "Threshold", "Severity")
   kableExtra::kbl(col_stats) |>
     kableExtra::kable_styling(bootstrap_options = c("striped", "condensed"),

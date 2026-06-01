@@ -6,7 +6,29 @@
 \usage{
 check_numeric_stats(df, config)
 }
-\description{
-QC-07: Report numeric summary statistics
+\arguments{
+\item{df}{A data frame with all columns as character vectors (as returned by
+\code{\link{read_dataset}}).}
+
+\item{config}{Named list. Merged configuration as returned by
+\code{\link{load_config}}.}
 }
-\keyword{internal}
+\value{
+A list of \code{\link{dq_result}} objects (one per numeric column),
+  all with status \code{"INFO"}. Returns an empty list if no numeric columns
+  are found.
+}
+\description{
+For each column whose resolved type is \code{"numeric"}, returns one
+\code{"INFO"} \code{\link{dq_result}} containing min, max, mean, and
+standard deviation of the parseable values. Columns inferred as non-numeric
+are silently skipped.
+}
+\examples{
+cfg_dir <- system.file("demonstrations/config", package = "dqcheckr")
+cfg  <- load_config("starwars_csv", config_dir = cfg_dir)
+path <- system.file("demonstrations/data/starwars.csv", package = "dqcheckr")
+df   <- read_dataset(path, cfg)
+check_numeric_stats(df, cfg)
+
+}

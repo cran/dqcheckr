@@ -410,17 +410,25 @@ datasets unless a dataset overrides them.</p>
 <span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a></span>
 <span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">  # FAIL if row count drops below this (0 = disabled)</span></span>
 <span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="at">  </span><span class="fu">min_row_count</span><span class="kw">:</span><span class="at"> </span><span class="dv">0</span></span>
-<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a></span>
-<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">  # Version-comparison thresholds (used when a previous file is available)</span></span>
-<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="at">  </span><span class="fu">max_row_count_change_pct</span><span class="kw">:</span><span class="at">       </span><span class="fl">0.10</span></span>
-<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="at">  </span><span class="fu">max_numeric_mean_shift_pct</span><span class="kw">:</span><span class="at">     </span><span class="fl">0.20</span></span>
-<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="at">  </span><span class="fu">max_missing_rate_change_pp</span><span class="kw">:</span><span class="at">     </span><span class="fl">2.0</span><span class="co">    # percentage points</span></span>
-<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a><span class="at">  </span><span class="fu">max_non_numeric_rate_change_pp</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">  # max_row_count: 1000000       # optional FAIL if row count exceeds this</span></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">  # max_file_size_mb: 500        # optional FAIL if file size exceeds this</span></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">  # Outlier detection (QC-15): both thresholds are optional; omit to skip</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="co">  # max_z_score: 3.0</span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a><span class="co">  # iqr_fence_multiplier: 1.5</span></span>
 <span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a></span>
-<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_new_columns</span><span class="kw">:</span><span class="at">         </span><span class="ch">true</span><span class="co">   # set false to suppress new-column warnings in CP-02</span></span>
-<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_dropped_columns</span><span class="kw">:</span><span class="at">     </span><span class="ch">true</span><span class="co">   # set false to suppress dropped-column warnings in CP-02</span></span>
-<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_type_changes</span><span class="kw">:</span><span class="at">        </span><span class="ch">true</span><span class="co">   # set false to suppress type-change warnings in CP-02</span></span>
-<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_column_order_change</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">   # set false to skip CP-08 entirely (WARN CSV / FAIL FWF)</span></span></code></pre></div>
+<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a><span class="co">  # Version-comparison thresholds (used when a previous file is available)</span></span>
+<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a><span class="at">  </span><span class="fu">max_row_count_change_pct</span><span class="kw">:</span><span class="at">       </span><span class="fl">0.10</span></span>
+<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a><span class="at">  </span><span class="fu">max_numeric_mean_shift_pct</span><span class="kw">:</span><span class="at">     </span><span class="fl">0.20</span></span>
+<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a><span class="at">  </span><span class="fu">max_missing_rate_change_pp</span><span class="kw">:</span><span class="at">     </span><span class="fl">2.0</span><span class="co">    # percentage points</span></span>
+<span id="cb4-28"><a href="#cb4-28" tabindex="-1"></a><span class="at">  </span><span class="fu">max_non_numeric_rate_change_pp</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span></span>
+<span id="cb4-29"><a href="#cb4-29" tabindex="-1"></a><span class="at">  </span><span class="fu">missing_rate_change_severity</span><span class="kw">:</span><span class="at">   warn</span><span class="co">   # set to &quot;fail&quot; to escalate CP-03 breaches to FAIL</span></span>
+<span id="cb4-30"><a href="#cb4-30" tabindex="-1"></a></span>
+<span id="cb4-31"><a href="#cb4-31" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_new_columns</span><span class="kw">:</span><span class="at">         </span><span class="ch">true</span><span class="co">   # set false to suppress new-column warnings in CP-02</span></span>
+<span id="cb4-32"><a href="#cb4-32" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_dropped_columns</span><span class="kw">:</span><span class="at">     </span><span class="ch">true</span><span class="co">   # set false to suppress dropped-column warnings in CP-02</span></span>
+<span id="cb4-33"><a href="#cb4-33" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_type_changes</span><span class="kw">:</span><span class="at">        </span><span class="ch">true</span><span class="co">   # set false to suppress type-change warnings in CP-02</span></span>
+<span id="cb4-34"><a href="#cb4-34" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_column_order_change</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">   # set false to skip CP-08 entirely</span></span>
+<span id="cb4-35"><a href="#cb4-35" tabindex="-1"></a><span class="at">  </span><span class="fu">column_order_severity</span><span class="kw">:</span><span class="at">    warn</span><span class="co">   # set to &quot;fail&quot; to escalate CP-08 breaches to FAIL for CSV</span></span></code></pre></div>
 </div>
 <div id="per-dataset-config-dataset_name.yml" class="section level3">
 <h3>Per-dataset config — <code>&lt;dataset_name&gt;.yml</code></h3>
@@ -522,21 +530,38 @@ corresponding checks are simply skipped when the key is absent.</p>
 <td>QC-13 (pattern / regex) skipped</td>
 </tr>
 <tr class="even">
+<td><code>max_row_count</code></td>
+<td>QC-14 maximum row count sub-check skipped</td>
+</tr>
+<tr class="odd">
+<td><code>max_file_size_mb</code></td>
+<td>QC-14 file size sub-check skipped</td>
+</tr>
+<tr class="even">
+<td><code>max_z_score</code> / <code>iqr_fence_multiplier</code></td>
+<td>QC-15 (outlier detection) skipped unless at least one is set</td>
+</tr>
+<tr class="odd">
 <td><code>custom_checks_file</code></td>
 <td>All custom checks skipped</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>previous_file</code> / second file in folder</td>
 <td>All CP-01–CP-08 (version comparison) skipped</td>
 </tr>
-<tr class="even">
-<td><code>min_row_count</code> set to 0</td>
-<td>QC-14 (minimum row count) skipped</td>
-</tr>
 <tr class="odd">
+<td><code>min_row_count</code> set to 0</td>
+<td>QC-14 minimum row count sub-check skipped</td>
+</tr>
+<tr class="even">
 <td><code>type_inference_threshold</code></td>
 <td>Defaults to 0.90 (affects QC-06, QC-07, QC-08, QC-11, CP-02, CP-04,
 CP-05, CP-06, CP-07)</td>
+</tr>
+<tr class="odd">
+<td><code>missing_rate_change_severity</code></td>
+<td>Defaults to <code>&quot;warn&quot;</code>; set to <code>&quot;fail&quot;</code> to
+escalate CP-03 breaches</td>
 </tr>
 <tr class="even">
 <td><code>flag_new_columns</code></td>
@@ -557,6 +582,11 @@ type-change warnings in CP-02</td>
 <td><code>flag_column_order_change</code></td>
 <td>Defaults to <code>true</code>; set to <code>false</code> to skip
 CP-08 entirely</td>
+</tr>
+<tr class="even">
+<td><code>column_order_severity</code></td>
+<td>Defaults to <code>&quot;warn&quot;</code> for CSV / <code>&quot;fail&quot;</code> for
+FWF; override with <code>&quot;fail&quot;</code> to force FAIL on CSV</td>
 </tr>
 </tbody>
 </table>
@@ -673,7 +703,8 @@ overall run status is the worst single status across all checks.</p>
 <tr class="even">
 <td>QC-12</td>
 <td>Key uniqueness</td>
-<td>Duplicate values in a <code>key_columns</code> column</td>
+<td>Duplicate values in <code>key_columns</code> (single or
+composite)</td>
 <td>FAIL</td>
 </tr>
 <tr class="odd">
@@ -684,8 +715,17 @@ overall run status is the worst single status across all checks.</p>
 </tr>
 <tr class="even">
 <td>QC-14</td>
-<td>Minimum row count</td>
-<td>Row count below <code>min_row_count</code></td>
+<td>Row count bounds</td>
+<td>Row count below <code>min_row_count</code>; above
+<code>max_row_count</code>; file size above
+<code>max_file_size_mb</code></td>
+<td>FAIL</td>
+</tr>
+<tr class="odd">
+<td>QC-15</td>
+<td>Outlier detection</td>
+<td>Numeric values outside Z-score (<code>max_z_score</code>) or IQR
+fence (<code>iqr_fence_multiplier</code>)</td>
 <td>FAIL</td>
 </tr>
 </tbody>
@@ -871,9 +911,10 @@ recorded)</li>
 </div>
 <div id="calling-individual-checks" class="section level2">
 <h2>Calling individual checks</h2>
-<p>You can call any check function directly, without going through the
-full pipeline. Every check takes <code>(df, config)</code> and returns a
-list of <code>dq_result</code> objects.</p>
+<p>Every check function is exported and can be called directly, without
+going through the full pipeline. All checks share the same signature —
+<code>(df, config)</code> — and return a list of <code>dq_result</code>
+objects.</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">library</span>(dqcheckr)</span>
 <span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a></span>
 <span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="co"># Build a minimal config programmatically</span></span>
@@ -893,18 +934,34 @@ list of <code>dq_result</code> objects.</p>
 <span id="cb11-17"><a href="#cb11-17" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">&quot;data/customer_accounts.csv&quot;</span>, <span class="at">colClasses =</span> <span class="st">&quot;character&quot;</span>)</span>
 <span id="cb11-18"><a href="#cb11-18" tabindex="-1"></a>df[] <span class="ot">&lt;-</span> <span class="fu">lapply</span>(df, trimws)</span>
 <span id="cb11-19"><a href="#cb11-19" tabindex="-1"></a></span>
-<span id="cb11-20"><a href="#cb11-20" tabindex="-1"></a><span class="co"># Run a single check</span></span>
-<span id="cb11-21"><a href="#cb11-21" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">check_missing_rate</span>(df, cfg)</span>
-<span id="cb11-22"><a href="#cb11-22" tabindex="-1"></a></span>
-<span id="cb11-23"><a href="#cb11-23" tabindex="-1"></a><span class="co"># Inspect</span></span>
-<span id="cb11-24"><a href="#cb11-24" tabindex="-1"></a>results[[<span class="dv">1</span>]]<span class="sc">$</span>status    <span class="co"># &quot;PASS&quot; or &quot;FAIL&quot;</span></span>
-<span id="cb11-25"><a href="#cb11-25" tabindex="-1"></a>results[[<span class="dv">1</span>]]<span class="sc">$</span>observed  <span class="co"># e.g. &quot;3.2% missing (4 of 125)&quot;</span></span>
-<span id="cb11-26"><a href="#cb11-26" tabindex="-1"></a></span>
-<span id="cb11-27"><a href="#cb11-27" tabindex="-1"></a><span class="co"># Run all single-snapshot checks at once</span></span>
-<span id="cb11-28"><a href="#cb11-28" tabindex="-1"></a>all_results <span class="ot">&lt;-</span> <span class="fu">run_qc_checks</span>(df, cfg)</span>
-<span id="cb11-29"><a href="#cb11-29" tabindex="-1"></a></span>
-<span id="cb11-30"><a href="#cb11-30" tabindex="-1"></a><span class="co"># Overall status</span></span>
-<span id="cb11-31"><a href="#cb11-31" tabindex="-1"></a><span class="fu">overall_status</span>(all_results)  <span class="co"># &quot;FAIL&quot; &gt; &quot;WARN&quot; &gt; &quot;PASS&quot; &gt; &quot;INFO&quot;</span></span></code></pre></div>
+<span id="cb11-20"><a href="#cb11-20" tabindex="-1"></a><span class="co"># Run any individual check</span></span>
+<span id="cb11-21"><a href="#cb11-21" tabindex="-1"></a><span class="fu">check_missing_rate</span>(df, cfg)       <span class="co"># QC-01</span></span>
+<span id="cb11-22"><a href="#cb11-22" tabindex="-1"></a><span class="fu">check_empty_column</span>(df, cfg)       <span class="co"># QC-02</span></span>
+<span id="cb11-23"><a href="#cb11-23" tabindex="-1"></a><span class="fu">check_duplicate_rows</span>(df, cfg)     <span class="co"># QC-03</span></span>
+<span id="cb11-24"><a href="#cb11-24" tabindex="-1"></a><span class="fu">check_row_count</span>(df, cfg)          <span class="co"># QC-04  (INFO)</span></span>
+<span id="cb11-25"><a href="#cb11-25" tabindex="-1"></a><span class="fu">check_col_count</span>(df, cfg)          <span class="co"># QC-05  (INFO)</span></span>
+<span id="cb11-26"><a href="#cb11-26" tabindex="-1"></a><span class="fu">check_inferred_types</span>(df, cfg)     <span class="co"># QC-06  (INFO)</span></span>
+<span id="cb11-27"><a href="#cb11-27" tabindex="-1"></a><span class="fu">check_numeric_stats</span>(df, cfg)      <span class="co"># QC-07  (INFO)</span></span>
+<span id="cb11-28"><a href="#cb11-28" tabindex="-1"></a><span class="fu">check_distinct_counts</span>(df, cfg)    <span class="co"># QC-08  (INFO)</span></span>
+<span id="cb11-29"><a href="#cb11-29" tabindex="-1"></a><span class="fu">check_allowed_values</span>(df, cfg)     <span class="co"># QC-09</span></span>
+<span id="cb11-30"><a href="#cb11-30" tabindex="-1"></a><span class="fu">check_numeric_bounds</span>(df, cfg)     <span class="co"># QC-10</span></span>
+<span id="cb11-31"><a href="#cb11-31" tabindex="-1"></a><span class="fu">check_non_numeric</span>(df, cfg)        <span class="co"># QC-11</span></span>
+<span id="cb11-32"><a href="#cb11-32" tabindex="-1"></a><span class="fu">check_key_uniqueness</span>(df, cfg)     <span class="co"># QC-12</span></span>
+<span id="cb11-33"><a href="#cb11-33" tabindex="-1"></a><span class="fu">check_pattern</span>(df, cfg)            <span class="co"># QC-13</span></span>
+<span id="cb11-34"><a href="#cb11-34" tabindex="-1"></a><span class="fu">check_min_row_count</span>(df, cfg)      <span class="co"># QC-14</span></span>
+<span id="cb11-35"><a href="#cb11-35" tabindex="-1"></a><span class="fu">check_outliers</span>(df, cfg)           <span class="co"># QC-15</span></span>
+<span id="cb11-36"><a href="#cb11-36" tabindex="-1"></a><span class="fu">check_schema_contract</span>(df, cfg)    <span class="co"># SC-01 / SC-02</span></span>
+<span id="cb11-37"><a href="#cb11-37" tabindex="-1"></a></span>
+<span id="cb11-38"><a href="#cb11-38" tabindex="-1"></a><span class="co"># Inspect a result</span></span>
+<span id="cb11-39"><a href="#cb11-39" tabindex="-1"></a>r <span class="ot">&lt;-</span> <span class="fu">check_missing_rate</span>(df, cfg)[[<span class="dv">1</span>]]</span>
+<span id="cb11-40"><a href="#cb11-40" tabindex="-1"></a>r<span class="sc">$</span>status    <span class="co"># &quot;PASS&quot; or &quot;FAIL&quot;</span></span>
+<span id="cb11-41"><a href="#cb11-41" tabindex="-1"></a>r<span class="sc">$</span>observed  <span class="co"># e.g. &quot;3.2% missing (4 of 125)&quot;</span></span>
+<span id="cb11-42"><a href="#cb11-42" tabindex="-1"></a></span>
+<span id="cb11-43"><a href="#cb11-43" tabindex="-1"></a><span class="co"># Run all single-snapshot checks at once</span></span>
+<span id="cb11-44"><a href="#cb11-44" tabindex="-1"></a>all_results <span class="ot">&lt;-</span> <span class="fu">run_qc_checks</span>(df, cfg)</span>
+<span id="cb11-45"><a href="#cb11-45" tabindex="-1"></a></span>
+<span id="cb11-46"><a href="#cb11-46" tabindex="-1"></a><span class="co"># Overall status across any result list</span></span>
+<span id="cb11-47"><a href="#cb11-47" tabindex="-1"></a><span class="fu">overall_status</span>(all_results)  <span class="co"># &quot;FAIL&quot; &gt; &quot;WARN&quot; &gt; &quot;PASS&quot; &gt; &quot;INFO&quot;</span></span></code></pre></div>
 <hr />
 </div>
 <div id="custom-checks" class="section level2">
@@ -939,9 +996,13 @@ must return a list of <code>dq_result</code> objects.</p>
 <p>Point to it in the dataset config:</p>
 <div class="sourceCode" id="cb13"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">custom_checks_file</span><span class="kw">:</span><span class="at"> </span><span class="st">&quot;custom/customer_accounts_checks.R&quot;</span></span></code></pre></div>
 <p>The file is sourced in an isolated environment (not the global
-session). <code>dq_result()</code> is available inside it. Any error —
-missing file, undefined function, runtime failure — stops the run with a
-clear message.</p>
+session) whose parent is <code>baseenv()</code>.
+<code>dq_result()</code> is explicitly available without qualification.
+All other dqcheckr functions (e.g. <code>resolve_col_type()</code>,
+<code>infer_col_type()</code>) must be called with the package prefix:
+<code>dqcheckr::resolve_col_type()</code>. Standard base R functions are
+fully available. Any error — missing file, undefined function, runtime
+failure — stops the run with a clear message.</p>
 <p><strong>Tip</strong>: always set <code>column =</code> when your
 check is scoped to a specific column. Results with
 <code>column = NA</code> (the default) appear in the HTML report and

@@ -6,7 +6,27 @@
 \usage{
 check_empty_column(df, config)
 }
-\description{
-QC-02: Check for entirely empty columns
+\arguments{
+\item{df}{A data frame with all columns as character vectors (as returned by
+\code{\link{read_dataset}}).}
+
+\item{config}{Named list. Merged configuration as returned by
+\code{\link{load_config}}.}
 }
-\keyword{internal}
+\value{
+A list of \code{\link{dq_result}} objects, one per column.
+  Status is \code{"FAIL"} for entirely empty columns; \code{"PASS"}
+  otherwise.
+}
+\description{
+Returns a \code{\link{dq_result}} per column. A column is considered empty
+when every value is \code{NA} or the empty string \code{""}.
+}
+\examples{
+cfg_dir <- system.file("demonstrations/config", package = "dqcheckr")
+cfg  <- load_config("starwars_csv", config_dir = cfg_dir)
+path <- system.file("demonstrations/data/starwars.csv", package = "dqcheckr")
+df   <- read_dataset(path, cfg)
+check_empty_column(df, cfg)
+
+}

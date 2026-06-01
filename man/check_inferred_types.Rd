@@ -6,7 +6,28 @@
 \usage{
 check_inferred_types(df, config)
 }
-\description{
-QC-06: Report inferred column types
+\arguments{
+\item{df}{A data frame with all columns as character vectors (as returned by
+\code{\link{read_dataset}}).}
+
+\item{config}{Named list. Merged configuration as returned by
+\code{\link{load_config}}.}
 }
-\keyword{internal}
+\value{
+A list of \code{\link{dq_result}} objects, one per column, all with
+  status \code{"INFO"}.
+}
+\description{
+Returns one \code{"INFO"} \code{\link{dq_result}} per column recording the
+type resolved by \code{\link{resolve_col_type}} (\code{"date"},
+\code{"numeric"}, \code{"character"}, or \code{"unknown"}).
+Per-column overrides from \code{config$column_types} are respected.
+}
+\examples{
+cfg_dir <- system.file("demonstrations/config", package = "dqcheckr")
+cfg  <- load_config("starwars_csv", config_dir = cfg_dir)
+path <- system.file("demonstrations/data/starwars.csv", package = "dqcheckr")
+df   <- read_dataset(path, cfg)
+check_inferred_types(df, cfg)
+
+}

@@ -12,7 +12,7 @@
 
 <meta name="author" content="Mick Mioduszewski" />
 
-<meta name="date" content="2026-05-10" />
+<meta name="date" content="2026-06-01" />
 
 <title>dqcheckr — Software Specification</title>
 
@@ -341,12 +341,12 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">dqcheckr — Software Specification</h1>
 <h4 class="author">Mick Mioduszewski</h4>
-<h4 class="date">2026-05-10</h4>
+<h4 class="date">2026-06-01</h4>
 
 
 
-<p><strong>Version</strong>: 0.1.1 <strong>Author</strong>: Mick
-Mioduszewski <strong>Date</strong>: 2026-05-10</p>
+<p><strong>Version</strong>: 0.2.0 <strong>Author</strong>: Mick
+Mioduszewski <strong>Date</strong>: 2026-06-01</p>
 <hr />
 <div id="part-a-purpose-and-intent" class="section level2">
 <h2>Part A — Purpose and Intent</h2>
@@ -513,15 +513,18 @@ long-term trend queries without reading the source files again.</p>
 ├── R/
 │   ├── run_check.R          # main entry point: run_dq_check()
 │   ├── ingest.R             # read CSV / FWF; trim whitespace
-│   ├── snapshot.R           # SQLite read/write
-│   ├── checks_generic.R     # QC-01..14 and SC-01..02
+│   ├── snapshot.R           # SQLite write + read_recent_snapshots()
+│   ├── drift.R              # compare_snapshots(), list_snapshots(), drift helpers
+│   ├── checks_generic.R     # QC-01..15 and SC-01..02
 │   ├── checks_custom.R      # source and call custom_checks(df)
 │   ├── compare.R            # CP-01..08
-│   ├── report.R             # rmarkdown::render() wrapper
+│   ├── report.R             # quarto::quarto_render() wrapper
 │   ├── utils.R              # dq_result(), load_config(), infer_col_type(), helpers
 │   └── dqcheckr-package.R   # package-level documentation
 ├── inst/
-│   ├── templates/report.Rmd
+│   ├── templates/
+│   │   ├── report.qmd       # main HTML report template
+│   │   └── drift_report.qmd # snapshot drift report template
 │   ├── config/
 │   │   ├── dqcheckr.yml
 │   │   └── example_dataset.yml
@@ -540,6 +543,7 @@ long-term trend queries without reading the source files again.</p>
 │   ├── test-compare.R
 │   ├── test-ingest.R
 │   ├── test-snapshot.R
+│   ├── test-drift.R
 │   └── test-integration.R
 ├── vignettes/
 │   ├── dqcheckr.Rmd         # user guide
@@ -558,18 +562,24 @@ long-term trend queries without reading the source files again.</p>
 <span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="at">  </span><span class="fu">max_missing_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.05</span><span class="co">            # FAIL if column missing rate exceeds this</span></span>
 <span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="at">  </span><span class="fu">max_non_numeric_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.01</span><span class="co">        # FAIL if non-numeric rate in numeric column exceeds this</span></span>
 <span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="at">  </span><span class="fu">min_row_count</span><span class="kw">:</span><span class="at"> </span><span class="dv">0</span><span class="co">                  # FAIL if row count below this (0 = disabled)</span></span>
-<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a></span>
-<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">  # Version comparison thresholds</span></span>
-<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="at">  </span><span class="fu">max_row_count_change_pct</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.10</span></span>
-<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="at">  </span><span class="fu">max_numeric_mean_shift_pct</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.20</span></span>
-<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="at">  </span><span class="fu">max_missing_rate_change_pp</span><span class="kw">:</span><span class="at"> </span><span class="fl">2.0</span><span class="co">   # percentage points</span></span>
-<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="at">  </span><span class="fu">max_non_numeric_rate_change_pp</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span></span>
-<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a></span>
-<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">  # Schema flags</span></span>
-<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_new_columns</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">            # set false to suppress new-column warnings in CP-02</span></span>
-<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_dropped_columns</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">        # set false to suppress dropped-column warnings in CP-02</span></span>
-<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_type_changes</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">           # set false to suppress type-change warnings in CP-02</span></span>
-<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_column_order_change</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">    # set false to skip CP-08 entirely (WARN CSV / FAIL FWF)</span></span></code></pre></div>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">  # max_row_count: 1000000          # optional FAIL if row count exceeds this</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">  # max_file_size_mb: 500           # optional FAIL if file size exceeds this</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">  # max_z_score: 3.0                # optional QC-15 outlier detection (Z-score)</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">  # iqr_fence_multiplier: 1.5       # optional QC-15 outlier detection (IQR fence)</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">  # Version comparison thresholds</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="at">  </span><span class="fu">max_row_count_change_pct</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.10</span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="at">  </span><span class="fu">max_numeric_mean_shift_pct</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.20</span></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="at">  </span><span class="fu">max_missing_rate_change_pp</span><span class="kw">:</span><span class="at"> </span><span class="fl">2.0</span><span class="co">   # percentage points</span></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="at">  </span><span class="fu">max_non_numeric_rate_change_pp</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span></span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="at">  </span><span class="fu">missing_rate_change_severity</span><span class="kw">:</span><span class="at"> warn</span><span class="co">  # &quot;warn&quot; or &quot;fail&quot; — severity for CP-03 breaches</span></span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a></span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="co">  # Schema flags</span></span>
+<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_new_columns</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">            # set false to suppress new-column warnings in CP-02</span></span>
+<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_dropped_columns</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">        # set false to suppress dropped-column warnings in CP-02</span></span>
+<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_type_changes</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">           # set false to suppress type-change warnings in CP-02</span></span>
+<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a><span class="at">  </span><span class="fu">flag_column_order_change</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">    # set false to skip CP-08 entirely</span></span>
+<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a><span class="at">  </span><span class="fu">column_order_severity</span><span class="kw">:</span><span class="at"> warn</span><span class="co">       # &quot;warn&quot; or &quot;fail&quot; — overrides format default for CP-08</span></span></code></pre></div>
 <p><strong>Per-dataset config —
 <code>&lt;dataset_name&gt;.yml</code></strong></p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">dataset_name</span><span class="kw">:</span><span class="at"> </span><span class="st">&quot;customer_accounts&quot;</span></span>
@@ -793,13 +803,13 @@ to QC-11.</p>
 <td>Non-numeric values</td>
 <td>Numeric columns</td>
 <td><code>non_numeric_rate &gt; max_non_numeric_rate</code></td>
-<td>Any non-numeric values present</td>
+<td><code>non_numeric_rate &gt; warn_non_numeric_rate</code></td>
 </tr>
 <tr class="even">
 <td>QC-12</td>
 <td>Key uniqueness</td>
-<td>Configured <code>key_columns</code></td>
-<td>Any duplicate value in key column</td>
+<td>Configured <code>key_columns</code> (single or composite)</td>
+<td>Any duplicate value in key</td>
 <td>—</td>
 </tr>
 <tr class="odd">
@@ -811,10 +821,20 @@ to QC-11.</p>
 </tr>
 <tr class="even">
 <td>QC-14</td>
-<td>Minimum row count</td>
+<td>Row count bounds</td>
 <td>Table</td>
-<td><code>row_count &lt; min_row_count</code> (if &gt; 0)</td>
+<td><code>row_count &lt; min_row_count</code> (if &gt; 0);
+<code>row_count &gt; max_row_count</code> (if set); file size &gt;
+<code>max_file_size_mb</code> (if set)</td>
 <td>—</td>
+</tr>
+<tr class="odd">
+<td>QC-15</td>
+<td>Outlier detection</td>
+<td>Numeric columns</td>
+<td>Value exceeds Z-score (<code>max_z_score</code>) or IQR fence
+(<code>iqr_fence_multiplier</code>) threshold</td>
+<td>— (skipped if neither threshold is configured)</td>
 </tr>
 </tbody>
 </table>
@@ -867,23 +887,37 @@ single-file mode</p>
 <tr class="odd">
 <td>CP-01</td>
 <td>Row count change</td>
-<td><code>abs(pct_change) &gt; max_row_count_change_pct</code></td>
+<td><code>abs(pct_change) &gt; max_row_count_change_pct</code> (WARN if
+previous has 0 rows)</td>
 <td>WARN</td>
 </tr>
 <tr class="even">
-<td>CP-02</td>
-<td>Schema diff</td>
-<td>Columns added, dropped, or type-changed (each independently
-suppressible via <code>flag_new_columns</code>,
-<code>flag_dropped_columns</code>, <code>flag_type_changes</code>)</td>
+<td>CP-02a</td>
+<td>New columns</td>
+<td>Columns in current not in previous (suppressible via
+<code>flag_new_columns: false</code>)</td>
+<td>WARN</td>
+</tr>
+<tr class="odd">
+<td>CP-02b</td>
+<td>Dropped columns</td>
+<td>Columns in previous not in current (suppressible via
+<code>flag_dropped_columns: false</code>)</td>
+<td>WARN</td>
+</tr>
+<tr class="even">
+<td>CP-02c</td>
+<td>Column type changes</td>
+<td>Type of a common column changed (suppressible via
+<code>flag_type_changes: false</code>)</td>
 <td>WARN</td>
 </tr>
 <tr class="odd">
 <td>CP-03</td>
 <td>Missing rate change</td>
-<td>Increase &gt; <code>max_missing_rate_change_pp</code> pp per
-column</td>
-<td>WARN</td>
+<td>Increase &gt; <code>max_missing_rate_change_pp</code> pp per column;
+severity controlled by <code>missing_rate_change_severity</code></td>
+<td>WARN (default) / FAIL</td>
 </tr>
 <tr class="even">
 <td>CP-04</td>
@@ -907,24 +941,26 @@ column</td>
 <td>CP-07</td>
 <td>Non-numeric rate change</td>
 <td>Increase &gt; <code>max_non_numeric_rate_change_pp</code> pp per
-column</td>
+column; always emits a result</td>
 <td>WARN</td>
 </tr>
 <tr class="even">
 <td>CP-08</td>
 <td>Column order change</td>
 <td>Column order differs from previous (suppressible via
-<code>flag_column_order_change: false</code>)</td>
+<code>flag_column_order_change: false</code>); severity overridable via
+<code>column_order_severity</code></td>
 <td>WARN (CSV) / FAIL (FWF)</td>
 </tr>
 </tbody>
 </table>
 <blockquote>
-<p>CP-02 is the single source of truth for schema differences. The
-<code>new_cols_vs_previous</code> and
+<p>CP-02 is split into three separate results (CP-02a, CP-02b, CP-02c)
+so each type of schema change can be independently read in the report
+and suppressed via config. The <code>new_cols_vs_previous</code> and
 <code>missing_cols_vs_previous</code> columns in the
-<code>snapshots</code> table are derived directly from the CP-02 result
-— they are not computed separately.</p>
+<code>snapshots</code> table are derived directly from the CP-02a/b
+results — they are not computed separately.</p>
 </blockquote>
 </div>
 <div id="c.7-custom-checks" class="section level3">
@@ -932,9 +968,14 @@ column</td>
 <ul>
 <li><code>custom_checks_file</code> in dataset config points to an
 <code>.R</code> file.</li>
-<li>Sourced into an isolated environment (not the global env).</li>
+<li>Sourced into an isolated environment whose parent is
+<code>baseenv()</code> (not the global env).</li>
 <li>Must define <code>custom_checks(df)</code> returning a list of
 <code>dq_result</code> objects.</li>
+<li><code>dq_result()</code> is explicitly injected and available
+without qualification.</li>
+<li>All other dqcheckr exports (e.g. <code>resolve_col_type()</code>)
+require the <code>dqcheckr::</code> prefix.</li>
 <li>Receives the trimmed data frame.</li>
 <li>Errors (missing file, missing function, runtime error) stop the
 run.</li>
@@ -1039,6 +1080,24 @@ set</td>
 <td>Comma-separated; NULL if none or <code>expected_columns</code> not
 set</td>
 </tr>
+<tr class="even">
+<td><code>comparison_mode</code></td>
+<td>TEXT</td>
+<td><code>&quot;comparison&quot;</code> or <code>&quot;single&quot;</code> (single-file runs
+have no previous)</td>
+</tr>
+<tr class="odd">
+<td><code>render_status</code></td>
+<td>TEXT</td>
+<td><code>&quot;success&quot;</code> or <code>&quot;failed&quot;</code> (updated if Quarto
+render fails)</td>
+</tr>
+<tr class="even">
+<td><code>type_changed_cols_vs_previous</code></td>
+<td>TEXT</td>
+<td>Comma-separated <code>col (prev-&gt;curr)</code> pairs; NULL if
+none</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Table: <code>column_snapshots</code></strong></p>
@@ -1129,7 +1188,7 @@ set</td>
 <td>NULL</td>
 </tr>
 <tr class="odd">
-<td><code>numeric_mean</code></td>
+<td><code>numeric_parseable_mean</code></td>
 <td>Numeric only</td>
 <td>NULL</td>
 <td>NULL</td>
@@ -1172,8 +1231,9 @@ column value. <code>dq_check</code> = <code>check_id</code>,
 <code>threshold</code>, <code>severity_on_breach</code> = status if
 WARN/FAIL, else NULL.</p>
 </div>
-<div id="c.9-main-entry-point" class="section level3">
-<h3>C.9 Main entry point</h3>
+<div id="c.9-main-entry-points" class="section level3">
+<h3>C.9 Main entry points</h3>
+<p><strong>Standard run:</strong></p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">run_dq_check</span>(</span>
 <span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  dataset_name,        <span class="co"># matches &lt;dataset_name&gt;.yml in config_dir</span></span>
 <span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">config_dir =</span> <span class="st">&quot;.&quot;</span>,    <span class="co"># contains dqcheckr.yml and &lt;dataset_name&gt;.yml</span></span>
@@ -1182,6 +1242,23 @@ WARN/FAIL, else NULL.</p>
 <span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co"># Returns invisibly: list(status, report_path, snapshot_id)</span></span></code></pre></div>
 <p>Report filename:
 <code>&lt;dataset_name&gt;_&lt;YYYYMMDD_HHMMSS&gt;.html</code></p>
+<p><strong>Snapshot drift analysis</strong> (compare any two historical
+snapshots):</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">compare_snapshots</span>(</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  dataset_name,</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="at">snapshot_id_prev =</span> <span class="cn">NULL</span>,   <span class="co"># defaults to second-most-recent</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  <span class="at">snapshot_id_curr =</span> <span class="cn">NULL</span>,   <span class="co"># defaults to most-recent</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>  <span class="at">db_path          =</span> <span class="cn">NULL</span>,   <span class="co"># defaults to snapshot_db from dqcheckr.yml</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>  <span class="at">config_dir       =</span> <span class="st">&quot;.&quot;</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="at">report           =</span> <span class="cn">TRUE</span>,   <span class="co"># render HTML drift report</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  <span class="at">open_report      =</span> <span class="fu">interactive</span>()</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>)</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a><span class="co"># Returns invisibly: named list with dataset_name, snap_prev, snap_curr,</span></span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="co">#   table_drift, schema_changes, missing_rate_changes, non_numeric_changes,</span></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a><span class="co">#   mean_shifts, distinct_changes</span></span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a><span class="fu">list_snapshots</span>(<span class="at">dataset_name =</span> <span class="cn">NULL</span>, db_path)</span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a><span class="co"># Returns a data frame of snapshot records; dataset_name = NULL returns all datasets</span></span></code></pre></div>
 <p>Console output:</p>
 <pre><code>[dqcheckr] customer_accounts: FAIL - 0 warning(s), 2 failure(s). Report: reports/customer_accounts_20260410_143022.html</code></pre>
 </div>
@@ -1241,7 +1318,8 @@ WARN/FAIL, else NULL.</p>
 </tr>
 <tr class="odd">
 <td>Report render fails</td>
-<td>Stop; snapshot already written</td>
+<td>Warning emitted; snapshot marked
+<code>render_status = &quot;failed&quot;</code></td>
 </tr>
 <tr class="even">
 <td><code>snapshot_db</code> path missing</td>
@@ -1269,37 +1347,43 @@ WARN/FAIL, else NULL.</p>
 <td>Snapshot store</td>
 </tr>
 <tr class="odd">
-<td><code>rmarkdown</code> + <code>knitr</code></td>
-<td>Report rendering</td>
+<td><code>quarto</code></td>
+<td>Report rendering (Quarto CLI required separately)</td>
 </tr>
 <tr class="even">
-<td><code>kableExtra</code></td>
-<td>Styled HTML tables in report</td>
+<td><code>knitr</code></td>
+<td>Template execution during Quarto render</td>
 </tr>
 <tr class="odd">
-<td><code>ggplot2</code> + <code>gridExtra</code></td>
-<td>Trend charts in report</td>
+<td><code>kableExtra</code></td>
+<td>Styled HTML tables in report templates</td>
 </tr>
 <tr class="even">
+<td><code>ggplot2</code> + <code>gridExtra</code></td>
+<td>Trend charts in report templates</td>
+</tr>
+<tr class="odd">
 <td><code>yaml</code></td>
 <td>Config parsing</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>dplyr</code></td>
-<td>Data manipulation</td>
+<td>Pipe operator (<code>%&gt;%</code>) used in report templates</td>
+</tr>
+<tr class="odd">
+<td><code>tidyr</code></td>
+<td>Data reshaping for trend charts in report templates</td>
 </tr>
 <tr class="even">
-<td><code>tidyr</code></td>
-<td>Data reshaping for trend charts</td>
-</tr>
-<tr class="odd">
 <td><code>rlang</code></td>
 <td>Structured error conditions</td>
 </tr>
 </tbody>
 </table>
 <p>All on CRAN. <code>pointblank</code> and <code>dataCompareR</code>
-were evaluated and not used — all logic is implemented natively.</p>
+were evaluated and not used — all logic is implemented natively.
+<code>rmarkdown</code> is listed in <code>Suggests</code> for vignette
+compilation only; it is no longer used for report rendering.</p>
 <hr />
 </div>
 </div>
@@ -1331,19 +1415,18 @@ specified. Implemented as: <code>current_file</code> set but
 <code>previous_file</code> absent runs in single-file mode.</td>
 </tr>
 <tr class="even">
-<td>D-02</td>
-<td><strong>CP-08 column order — WARN vs FAIL severity</strong></td>
-<td>CP-08 is WARN for CSV and FAIL for FWF. There is currently no way to
-override the severity per dataset. A
-<code>column_order_change_severity</code> per-dataset override may be
-needed.</td>
+<td><del>D-02</del></td>
+<td><del><strong>CP-08 column order — WARN vs FAIL
+severity</strong></del></td>
+<td>Resolved in v0.2.0: <code>column_order_severity</code> config key
+overrides the format-based default for CP-08.</td>
 </tr>
 <tr class="odd">
-<td>D-03</td>
-<td><strong>QC-03 duplicate rows — no key scope</strong></td>
-<td>QC-03 checks for fully-identical rows only. Multi-column key
-uniqueness (two rows with the same <code>id</code> but different
-<code>amount</code>) is not yet implemented.</td>
+<td><del>D-03</del></td>
+<td><del><strong>QC-03 duplicate rows — no key scope</strong></del></td>
+<td>Resolved in v0.2.0: QC-12 now supports composite keys via a
+<code>key_columns</code> list. QC-03 retains full-row duplicate
+detection.</td>
 </tr>
 </tbody>
 </table>
@@ -1374,9 +1457,8 @@ between columns (e.g. if <code>status = CLOSED</code> then
 value in a date column is older than N days</td>
 </tr>
 <tr class="odd">
-<td>B-03</td>
-<td><strong>Multi-column key uniqueness</strong> — QC-12 currently
-checks single columns only</td>
+<td><del>B-03</del></td>
+<td><del><strong>Multi-column key uniqueness</strong></del></td>
 </tr>
 <tr class="even">
 <td>B-04</td>
@@ -1394,9 +1476,8 @@ configured datasets in sequence</td>
 (<code>arrow</code>), Excel, database tables via <code>DBI</code></td>
 </tr>
 <tr class="odd">
-<td>B-07</td>
-<td><strong>CP-03 severity</strong> — make WARN vs FAIL configurable
-(currently always WARN)</td>
+<td><del>B-07</del></td>
+<td><del><strong>CP-03 severity</strong></del></td>
 </tr>
 <tr class="even">
 <td>B-08</td>
@@ -1436,13 +1517,16 @@ formats will be misclassified as character</td>
 <td>The report appendix reads from in-memory <code>col_stats</code>, not
 from SQLite. If the SQLite write fails but the report succeeds, the
 appendix and the database can show slightly different values in edge
-cases</td>
+cases. Report render failures are non-fatal from v0.2.0: the snapshot is
+preserved and marked <code>render_status = &quot;failed&quot;</code>.</td>
 </tr>
 <tr class="even">
 <td>L-04</td>
-<td>Performance target (&lt; 60 seconds for 1 M rows) has not been
-benchmarked; very wide files (many columns) may be slower than
-expected</td>
+<td>Performance scales linearly with rows but super-linearly with
+columns. Benchmarked on macOS / aarch64 / R 4.6.0 with 1 M-row synthetic
+data: 10 cols → 47.6 s (21,031 rows/s); 20 cols → 91.9 s (10,881
+rows/s); 49 cols → 138.9 s (7,200 rows/s). Very wide files (100+
+columns) will be substantially slower.</td>
 </tr>
 </tbody>
 </table>
