@@ -12,8 +12,10 @@
 #' by two 'YAML' files: a global \code{dqcheckr.yml} and a per-dataset
 #' \code{<dataset_name>.yml}.
 #'
-#' @keywords internal
-#' @noRd
+#' These packages are only called from the report templates rendered by
+#' Quarto in a separate process (\code{inst/templates/*.qmd}), so static
+#' analysis of \code{R/} cannot see them as used -- without a reference here,
+#' \code{R CMD check} reports "Namespaces in Imports field not imported from".
 #' @importFrom kableExtra kbl kable_styling cell_spec
 #' @importFrom ggplot2 ggplot aes geom_line geom_point geom_col labs
 #' @importFrom ggplot2 scale_fill_manual theme_minimal
@@ -21,4 +23,7 @@
 #' @importFrom dplyr %>%
 #' @importFrom tidyr pivot_longer
 #' @importFrom knitr raw_html
+#'
+#' @keywords internal
+#' @noRd
 "_PACKAGE"
