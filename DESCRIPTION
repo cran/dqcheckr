@@ -1,8 +1,8 @@
 Package: dqcheckr
 Type: Package
 Title: Automated Data Quality Checks for Recurring Dataset Deliveries
-Version: 0.2.1
-Date: 2026-06-03
+Version: 0.2.2
+Date: 2026-06-18
 Authors@R: person("Mick", "Mioduszewski",
                   email = "mick@mioduszewski.net",
                   role  = c("aut", "cre"))
@@ -26,8 +26,8 @@ VignetteBuilder: knitr
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0
 NeedsCompilation: no
-Packaged: 2026-06-08 00:13:34 UTC; mick
+Packaged: 2026-06-18 02:21:19 UTC; mick
 Author: Mick Mioduszewski [aut, cre]
 Maintainer: Mick Mioduszewski <mick@mioduszewski.net>
 Repository: CRAN
-Date/Publication: 2026-06-08 05:00:02 UTC
+Date/Publication: 2026-06-18 08:00:02 UTC
