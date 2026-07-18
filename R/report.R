@@ -4,7 +4,12 @@
 render_report <- function(dataset_name, file_name, file_path, df,
                           qc_results, cp_results, custom_results,
                           snapshot_history, config, col_stats = NULL, output_dir,
-                          open_report = TRUE) {
+                          open_report = TRUE, run_time = NULL,
+                          snapshot_id = NULL) {
+  # run_time is the run's single timestamp (see run_dq_check) so the filename
+  # slug matches the snapshot's run_timestamp exactly; snapshot_id is appended
+  # to keep two same-second runs of one dataset from colliding on one file.
+  run_time <- run_time %||% Sys.time()
   if (!quarto::quarto_available()) {
     warning("Quarto CLI not found -- HTML report skipped. Install from https://quarto.org",
             call. = FALSE)
@@ -20,8 +25,7 @@ render_report <- function(dataset_name, file_name, file_path, df,
   output_dir <- normalizePath(output_dir, mustWork = FALSE)
   file_path  <- normalizePath(file_path,  mustWork = FALSE)
 
-  ts    <- format(Sys.time(), "%Y%m%d_%H%M%S", tz = "UTC")
-  fname <- sprintf("%s_%s.html", dataset_name, ts)
+  fname <- report_filename(dataset_name, run_time, snapshot_id)
   out   <- file.path(output_dir, fname)
 
   if (is.null(col_stats)) col_stats <- compute_col_stats(df, config)
@@ -37,7 +41,7 @@ render_report <- function(dataset_name, file_name, file_path, df,
     # Intentionally local time (tz = "") -- this is the "Run time" shown to
     # the user in the report (report.qmd:71), unlike the UTC timestamps used
     # for filename slugs and snapshot DB keys elsewhere in this file.
-    run_timestamp    = format(Sys.time(), "%Y-%m-%d %H:%M:%S", tz = ""),
+    run_timestamp    = format(run_time, "%Y-%m-%d %H:%M:%S", tz = ""),
     df               = df,
     qc_results       = qc_results,
     cp_results       = cp_results,
@@ -48,21 +52,10 @@ render_report <- function(dataset_name, file_name, file_path, df,
     overall_status   = overall_status(c(qc_results, cp_results, custom_results))
   ), rds_path)
 
-  render_dir   <- tempfile()
-  dir.create(render_dir, recursive = TRUE)
-  on.exit(unlink(render_dir, recursive = TRUE), add = TRUE)
-  tmp_template <- file.path(render_dir, "report.qmd")
-  file.copy(template, tmp_template)
-
-  quarto::quarto_render(
-    input          = tmp_template,
-    output_file    = fname,
-    execute_params = list(rds_path = rds_path),
-    quiet          = TRUE
-  )
-
-  rendered <- file.path(render_dir, fname)
-  if (file.exists(rendered)) file.rename(rendered, out)
+  # Render in a throwaway dir and move into place only once the file exists; a
+  # no-output render aborts (dqcheckr_render_error) rather than naming a report
+  # that does not exist and letting run_dq_check() record the run as a success.
+  .quarto_render_to_file(template, rds_path, out)
 
   if (open_report && interactive()) utils::browseURL(out)
 

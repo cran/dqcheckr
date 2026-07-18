@@ -1,9 +1,6 @@
-#' Test for missing or empty values
-#' @keywords internal
-#' @noRd
-.missing_vals <- function(x) is.na(x) | x == ""
-
 # QC functions -----------------------------------------------------------------
+# `.missing_vals()` (the missing/empty predicate) lives in utils.R so the QC,
+# comparison, and snapshot code share one definition.
 
 #' QC-01: Check missing rate per column
 #'
@@ -27,7 +24,9 @@ check_missing_rate <- function(df, config) {
   lapply(names(df), function(col) {
     threshold     <- col_threshold(config, col, "max_missing_rate", 0.05)
     missing_count <- sum(.missing_vals(df[[col]]))
-    missing_rate  <- missing_count / nrow(df)
+    # 0/0 would be NaN and poison the threshold comparison; an empty file is
+    # reported as a FAIL by QC-14 ("Empty file"), so rates are defined as 0.
+    missing_rate  <- if (nrow(df) > 0) missing_count / nrow(df) else 0
     status <- if (missing_rate > threshold) "FAIL" else "PASS"
     dq_result(
       check_id   = "QC-01",
@@ -196,6 +195,11 @@ check_col_count <- function(df, config) {
 #'   \code{\link{read_dataset}}).
 #' @param config Named list. Merged configuration as returned by
 #'   \code{\link{load_config}}.
+#' @param types Optional named character vector of pre-resolved column types
+#'   (one element per column, as produced by \code{\link{resolve_col_type}}).
+#'   When \code{NULL} (the default), types are resolved internally. Supplying
+#'   this avoids re-running type inference when several checks share one data
+#'   frame.
 #'
 #' @return A list of \code{\link{dq_result}} objects, one per column, all with
 #'   status \code{"INFO"}.
@@ -208,9 +212,10 @@ check_col_count <- function(df, config) {
 #' check_inferred_types(df, cfg)
 #'
 #' @export
-check_inferred_types <- function(df, config) {
+check_inferred_types <- function(df, config, types = NULL) {
+  types <- types %||% resolve_col_types(df, config)
   lapply(names(df), function(col) {
-    typ <- resolve_col_type(col, df[[col]], config)
+    typ <- types[[col]]
     dq_result(
       check_id   = "QC-06",
       check_name = "Inferred type",
@@ -233,6 +238,8 @@ check_inferred_types <- function(df, config) {
 #'   \code{\link{read_dataset}}).
 #' @param config Named list. Merged configuration as returned by
 #'   \code{\link{load_config}}.
+#' @param types Optional named character vector of pre-resolved column types;
+#'   see \code{\link{check_inferred_types}}.
 #'
 #' @return A list of \code{\link{dq_result}} objects (one per numeric column),
 #'   all with status \code{"INFO"}. Returns an empty list if no numeric columns
@@ -247,14 +254,14 @@ check_inferred_types <- function(df, config) {
 #'
 #' @importFrom stats sd
 #' @export
-check_numeric_stats <- function(df, config) {
-  results <- list()
-  for (col in names(df)) {
-    if (resolve_col_type(col, df[[col]], config) != "numeric") next
+check_numeric_stats <- function(df, config, types = NULL) {
+  types <- types %||% resolve_col_types(df, config)
+  .compact(lapply(names(df), function(col) {
+    if (types[[col]] != "numeric") return(NULL)
     vals <- suppressWarnings(as.numeric(df[[col]]))
     vals <- vals[!is.na(vals)]
-    if (length(vals) == 0) next
-    results <- c(results, list(dq_result(
+    if (length(vals) == 0) return(NULL)
+    dq_result(
       check_id   = "QC-07",
       check_name = "Numeric stats",
       column     = col,
@@ -263,9 +270,8 @@ check_numeric_stats <- function(df, config) {
                            min(vals), max(vals), mean(vals),
                            if (length(vals) > 1) sd(vals) else NA_real_),
       message    = sprintf("Summary statistics for numeric column '%s'.", col)
-    )))
-  }
-  results
+    )
+  }))
 }
 
 #' QC-08: Report distinct value counts for character columns
@@ -278,6 +284,8 @@ check_numeric_stats <- function(df, config) {
 #'   \code{\link{read_dataset}}).
 #' @param config Named list. Merged configuration as returned by
 #'   \code{\link{load_config}}.
+#' @param types Optional named character vector of pre-resolved column types;
+#'   see \code{\link{check_inferred_types}}.
 #'
 #' @return A list of \code{\link{dq_result}} objects (one per character column),
 #'   all with status \code{"INFO"}. Returns an empty list if no character
@@ -291,12 +299,12 @@ check_numeric_stats <- function(df, config) {
 #' check_distinct_counts(df, cfg)
 #'
 #' @export
-check_distinct_counts <- function(df, config) {
-  results <- list()
-  for (col in names(df)) {
-    if (resolve_col_type(col, df[[col]], config) != "character") next
+check_distinct_counts <- function(df, config, types = NULL) {
+  types <- types %||% resolve_col_types(df, config)
+  .compact(lapply(names(df), function(col) {
+    if (types[[col]] != "character") return(NULL)
     n_distinct <- length(unique(df[[col]][!.missing_vals(df[[col]])]))
-    results <- c(results, list(dq_result(
+    dq_result(
       check_id   = "QC-08",
       check_name = "Distinct value count",
       column     = col,
@@ -304,9 +312,8 @@ check_distinct_counts <- function(df, config) {
       observed   = as.character(n_distinct),
       message    = sprintf("Column '%s' has %d distinct non-empty value(s).",
                            col, n_distinct)
-    )))
-  }
-  results
+    )
+  }))
 }
 
 #' QC-09: Check for values outside the allowed set
@@ -335,15 +342,27 @@ check_distinct_counts <- function(df, config) {
 #'
 #' @export
 check_allowed_values <- function(df, config) {
-  results   <- list()
-  col_rules <- config$column_rules %||% list()
-  for (col in names(col_rules)) {
+  col_rules <- config[["column_rules"]] %||% list()
+  .compact(lapply(names(col_rules), function(col) {
     allowed <- col_rules[[col]]$allowed_values
-    if (is.null(allowed) || !col %in% names(df)) next
+    if (is.null(allowed) || !col %in% names(df)) return(NULL)
+    allowed_vec <- unlist(allowed, use.names = FALSE)
+    # The numerically-typed subset of the allowed list, kept separate from the
+    # character form. A mixed YAML list like [2.1, 3.5, "N/A"] unlists to an
+    # all-character vector, so gating on is.numeric(allowed_vec) would skip the
+    # numeric comparison entirely and FAIL a file value of "2.10" (B-22). Only
+    # genuinely-numeric entries are compared numerically, so a *string* "007"
+    # still does not accept a file value of "7".
+    num_allowed <- unlist(allowed[vapply(allowed, is.numeric, logical(1))],
+                          use.names = FALSE)
     vals <- df[[col]][!.missing_vals(df[[col]])]
-    bad  <- setdiff(unique(vals), allowed)
+    bad  <- setdiff(unique(vals), as.character(allowed_vec))
+    if (length(bad) > 0 && length(num_allowed) > 0) {
+      bad_num <- suppressWarnings(as.numeric(bad))
+      bad <- bad[is.na(bad_num) | !bad_num %in% num_allowed]
+    }
     status <- if (length(bad) > 0) "FAIL" else "PASS"
-    results <- c(results, list(dq_result(
+    dq_result(
       check_id   = "QC-09",
       check_name = "Allowed values",
       column     = col,
@@ -352,15 +371,14 @@ check_allowed_values <- function(df, config) {
         paste("Unexpected values:", .cap_values(bad))
       else
         "All values are in the allowed list.",
-      threshold  = paste("Allowed:", paste(allowed, collapse = ", ")),
+      threshold  = paste("Allowed:", paste(allowed_vec, collapse = ", ")),
       message    = if (length(bad) > 0)
         sprintf("Column '%s' contains %d unexpected value(s): %s.",
                 col, length(bad), .cap_values(bad))
       else
         sprintf("Column '%s' contains only allowed values.", col)
-    )))
-  }
-  results
+    )
+  }))
 }
 
 #' QC-10: Check for out-of-range numeric values
@@ -389,46 +407,42 @@ check_allowed_values <- function(df, config) {
 #' @importFrom utils head
 #' @export
 check_numeric_bounds <- function(df, config) {
-  results   <- list()
-  col_rules <- config$column_rules %||% list()
-  for (col in names(col_rules)) {
+  col_rules <- config[["column_rules"]] %||% list()
+  .compact(lapply(names(col_rules), function(col) {
     min_val <- col_rules[[col]]$min_value
     max_val <- col_rules[[col]]$max_value
-    if (is.null(min_val) && is.null(max_val)) next
-    if (!col %in% names(df)) next
-    vals    <- suppressWarnings(as.numeric(df[[col]]))
-    violate <- character(0)
-    if (!is.null(min_val)) {
-      below   <- df[[col]][!is.na(vals) & vals < min_val]
-      violate <- c(violate, unique(below))
-    }
-    if (!is.null(max_val)) {
-      above   <- df[[col]][!is.na(vals) & vals > max_val]
-      violate <- c(violate, unique(above))
-    }
-    violate <- unique(violate)
-    status  <- if (length(violate) > 0) "FAIL" else "PASS"
+    if (is.null(min_val) && is.null(max_val)) return(NULL)
+    if (!col %in% names(df)) return(NULL)
+    vals <- suppressWarnings(as.numeric(df[[col]]))
+    # Count violating ROWS; a million rows of the same bad value must not
+    # read as "1 out-of-range value". Unique values are kept for display.
+    viol <- rep(FALSE, length(vals))
+    if (!is.null(min_val)) viol <- viol | (!is.na(vals) & vals < min_val)
+    if (!is.null(max_val)) viol <- viol | (!is.na(vals) & vals > max_val)
+    n_rows   <- sum(viol)
+    examples <- unique(df[[col]][viol])
+    status   <- if (n_rows > 0) "FAIL" else "PASS"
     thr_parts <- c(
       if (!is.null(min_val)) paste("min:", min_val),
       if (!is.null(max_val)) paste("max:", max_val)
     )
-    results <- c(results, list(dq_result(
+    dq_result(
       check_id   = "QC-10",
       check_name = "Numeric bounds",
       column     = col,
       status     = status,
-      observed   = if (length(violate) > 0)
-        paste("Out-of-range values:", paste(head(violate, 5), collapse = ", "))
+      observed   = if (n_rows > 0)
+        paste("Out-of-range values:", paste(head(examples, 5), collapse = ", "))
       else
         "All values are within bounds.",
       threshold  = paste(thr_parts, collapse = "; "),
-      message    = if (length(violate) > 0)
-        sprintf("Column '%s' has %d out-of-range value(s).", col, length(violate))
+      message    = if (n_rows > 0)
+        sprintf("Column '%s' has %d out-of-range row(s) (%d distinct value(s)).",
+                col, n_rows, length(examples))
       else
         sprintf("Column '%s' values are all within bounds.", col)
-    )))
-  }
-  results
+    )
+  }))
 }
 
 #' QC-11: Check non-numeric rate in numeric columns
@@ -444,6 +458,8 @@ check_numeric_bounds <- function(df, config) {
 #'   \code{\link{read_dataset}}).
 #' @param config Named list. Merged configuration as returned by
 #'   \code{\link{load_config}}.
+#' @param types Optional named character vector of pre-resolved column types;
+#'   see \code{\link{check_inferred_types}}.
 #'
 #' @return A list of \code{\link{dq_result}} objects, one per numeric column.
 #'   Returns an empty list if no numeric columns are found.
@@ -456,12 +472,12 @@ check_numeric_bounds <- function(df, config) {
 #' check_non_numeric(df, cfg)
 #'
 #' @export
-check_non_numeric <- function(df, config) {
-  results <- list()
-  for (col in names(df)) {
-    if (resolve_col_type(col, df[[col]], config) != "numeric") next
+check_non_numeric <- function(df, config, types = NULL) {
+  types <- types %||% resolve_col_types(df, config)
+  .compact(lapply(names(df), function(col) {
+    if (types[[col]] != "numeric") return(NULL)
     non_empty <- df[[col]][!.missing_vals(df[[col]])]
-    if (length(non_empty) == 0) next
+    if (length(non_empty) == 0) return(NULL)
     bad  <- non_empty[is.na(suppressWarnings(as.numeric(non_empty)))]
     rate <- length(bad) / length(non_empty)
 
@@ -470,7 +486,7 @@ check_non_numeric <- function(df, config) {
 
     status <- if (rate > fail_threshold) "FAIL" else if (rate > warn_threshold) "WARN" else "PASS"
 
-    results <- c(results, list(dq_result(
+    dq_result(
       check_id   = "QC-11",
       check_name = "Non-numeric values",
       column     = col,
@@ -486,9 +502,8 @@ check_non_numeric <- function(df, config) {
                        col, length(bad)),
         PASS = sprintf("Column '%s' has no non-numeric values.", col)
       )
-    )))
-  }
-  results
+    )
+  }))
 }
 
 #' QC-12: Check uniqueness of key column(s)
@@ -517,7 +532,7 @@ check_non_numeric <- function(df, config) {
 #'
 #' @export
 check_key_uniqueness <- function(df, config) {
-  keys <- config$key_columns
+  keys <- config[["key_columns"]]
   if (is.null(keys) || length(keys) == 0) return(list())
 
   if (length(keys) == 1) {
@@ -603,15 +618,32 @@ check_key_uniqueness <- function(df, config) {
 #'
 #' @export
 check_pattern <- function(df, config) {
-  results   <- list()
-  col_rules <- config$column_rules %||% list()
-  for (col in names(col_rules)) {
+  col_rules <- config[["column_rules"]] %||% list()
+  .compact(lapply(names(col_rules), function(col) {
     pattern <- col_rules[[col]]$pattern
-    if (is.null(pattern) || !col %in% names(df)) next
+    if (is.null(pattern) || !col %in% names(df)) return(NULL)
     non_empty  <- df[[col]][!.missing_vals(df[[col]])]
-    bad_count  <- sum(!grepl(pattern, non_empty, perl = TRUE))
+    # An invalid regex in hand-edited YAML must fail this check, not abort
+    # the whole run with a raw grepl() error (PCRE also emits a compilation
+    # warning before the error -- suppress it; the FAIL result carries the
+    # message).
+    bad_count  <- tryCatch(
+      suppressWarnings(sum(!grepl(pattern, non_empty, perl = TRUE))),
+      error = function(e) e)
+    if (inherits(bad_count, "error")) {
+      return(dq_result(
+        check_id   = "QC-13",
+        check_name = "Pattern / regex",
+        column     = col,
+        status     = "FAIL",
+        observed   = "Pattern could not be evaluated",
+        threshold  = pattern,
+        message    = sprintf("Column '%s': invalid regex pattern '%s' (%s).",
+                             col, pattern, conditionMessage(bad_count))
+      ))
+    }
     status     <- if (bad_count > 0) "FAIL" else "PASS"
-    results <- c(results, list(dq_result(
+    dq_result(
       check_id   = "QC-13",
       check_name = "Pattern / regex",
       column     = col,
@@ -623,16 +655,18 @@ check_pattern <- function(df, config) {
                 col, bad_count, pattern)
       else
         sprintf("Column '%s': all values match pattern '%s'.", col, pattern)
-    )))
-  }
-  results
+    )
+  }))
 }
 
 #' QC-14: Check row count bounds and optional file size
 #'
-#' Runs up to three sub-checks, each returning a separate
+#' Runs up to four sub-checks, each returning a separate
 #' \code{\link{dq_result}}:
 #' \enumerate{
+#'   \item \strong{Empty file} -- FAIL when the file contains no data rows at
+#'     all. Emitted unconditionally (independent of \code{min_row_count}) so
+#'     that an empty delivery always fails the run.
 #'   \item \strong{File size} -- only when \code{file_path} is supplied and
 #'     \code{max_file_size_mb} is configured in \code{rules}: FAIL if the file
 #'     exceeds the size limit.
@@ -650,7 +684,7 @@ check_pattern <- function(df, config) {
 #' @param file_path Character or \code{NULL}. Absolute path to the file on
 #'   disk, required for the optional file-size sub-check.
 #'
-#' @return A list of \code{\link{dq_result}} objects (one to three entries
+#' @return A list of \code{\link{dq_result}} objects (one to four entries
 #'   depending on which sub-checks are active).
 #'
 #' @examples
@@ -663,6 +697,18 @@ check_pattern <- function(df, config) {
 #' @export
 check_min_row_count <- function(df, config, file_path = NULL) {
   results <- list()
+
+  # Empty-file check: a delivery with zero data rows must always FAIL,
+  # regardless of whether min_row_count is configured.
+  if (nrow(df) == 0) {
+    results <- c(results, list(dq_result(
+      check_id   = "QC-14",
+      check_name = "Empty file",
+      status     = "FAIL",
+      observed   = "0 rows",
+      message    = "File contains no data rows."
+    )))
+  }
 
   # File size check (runs before row count; requires file_path)
   if (!is.null(file_path) && file.exists(file_path)) {
@@ -746,6 +792,8 @@ check_min_row_count <- function(df, config, file_path = NULL) {
 #'   \code{\link{read_dataset}}).
 #' @param config Named list. Merged configuration as returned by
 #'   \code{\link{load_config}}.
+#' @param types Optional named character vector of pre-resolved column types;
+#'   see \code{\link{check_inferred_types}}.
 #'
 #' @return A list of \code{\link{dq_result}} objects, one per numeric column.
 #'   Status is \code{"FAIL"} when outliers are detected; \code{"PASS"}
@@ -760,38 +808,38 @@ check_min_row_count <- function(df, config, file_path = NULL) {
 #'
 #' @importFrom stats median IQR quantile
 #' @export
-check_outliers <- function(df, config) {
-  results <- list()
-  for (col in names(df)) {
-    if (resolve_col_type(col, df[[col]], config) != "numeric") next
+check_outliers <- function(df, config, types = NULL) {
+  types <- types %||% resolve_col_types(df, config)
+  .compact(lapply(names(df), function(col) {
+    if (types[[col]] != "numeric") return(NULL)
 
     max_z  <- col_threshold(config, col, "max_z_score")
     iqr_k  <- col_threshold(config, col, "iqr_fence_multiplier")
 
     if (is.null(max_z) && is.null(iqr_k)) {
-      results <- c(results, list(dq_result(
+      return(dq_result(
         check_id   = "QC-15",
         check_name = "Outlier detection",
         column     = col,
         status     = "PASS",
         observed   = "No outlier threshold configured.",
         message    = sprintf("Column '%s': outlier check skipped (no threshold).", col)
-      )))
-      next
+      ))
     }
 
     vals <- suppressWarnings(as.numeric(df[[col]]))
-    nn   <- vals[!is.na(vals)]
+    # Drop non-finite parses (Inf/-Inf): they make sd() return NaN, and the
+    # downstream `if (sdev > 0)` / comparison then aborts on a missing value.
+    nn   <- vals[is.finite(vals)]
     if (length(nn) < 4) {
-      results <- c(results, list(dq_result(
+      return(dq_result(
         check_id   = "QC-15",
         check_name = "Outlier detection",
         column     = col,
         status     = "PASS",
         observed   = sprintf("%d parseable values -- too few to test.", length(nn)),
         message    = sprintf("Column '%s': outlier check skipped (fewer than 4 values).", col)
-      )))
-      next
+      ))
     }
 
     outlier_idx <- logical(length(nn))
@@ -816,7 +864,7 @@ check_outliers <- function(df, config) {
       if (!is.null(max_z))  sprintf("max z-score: %.1f", max_z),
       if (!is.null(iqr_k)) sprintf("IQR multiplier: %.1f", iqr_k)
     )
-    results <- c(results, list(dq_result(
+    dq_result(
       check_id   = "QC-15",
       check_name = "Outlier detection",
       column     = col,
@@ -833,9 +881,131 @@ check_outliers <- function(df, config) {
                 n_out / length(nn) * 100)
       else
         sprintf("Column '%s': no outliers detected.", col)
+    )
+  }))
+}
+
+#' QC-16: File encoding sanity
+#'
+#' Verifies that the delivered file's bytes matched the encoding declared in
+#' the config. \code{\link{read_dataset}} scans the whole file for UTF-8
+#' validity before parsing (when the effective encoding is UTF-8) and records
+#' the outcome on the returned data frame; this check turns that outcome into
+#' a result:
+#' \itemize{
+#'   \item \strong{PASS} when the file was valid UTF-8 as declared, or when a
+#'     declared single-byte encoding (e.g. \code{ISO-8859-1},
+#'     \code{Windows-1252}) made a validity scan meaningless -- every byte
+#'     sequence is valid in those encodings by construction.
+#'   \item \strong{FAIL} when the file was not valid UTF-8 as declared. The
+#'     run still completes: the file is read using a single-byte fallback
+#'     encoding, and the message reports the detector's best guess at the
+#'     actual encoding so the config can be corrected.
+#'   \item \strong{WARN} when the declared encoding is multi-byte or unknown
+#'     (e.g. \code{UTF-16LE}, \code{Shift-JIS}): dqcheckr scans only UTF-8, so
+#'     such a file is read as declared but its validity is not verified -- it is
+#'     never reported as "valid by construction".
+#'   \item \strong{WARN} when the UTF-8 scan itself could not complete (for
+#'     example out of memory on a very large delivery): validity is unknown, so
+#'     it is neither a clean PASS nor a definitive FAIL.
+#' }
+#' A supplier can change their export encoding between deliveries, which is
+#' why this runs against every delivery rather than only at configuration
+#' time. Returns an empty list when \code{df} did not come from
+#' \code{\link{read_dataset}} (no scan outcome to report).
+#'
+#' @param df A data frame with all columns as character vectors (as returned by
+#'   \code{\link{read_dataset}}).
+#' @param config Named list. Merged configuration as returned by
+#'   \code{\link{load_config}}. Present for interface consistency; the scan
+#'   outcome travels with \code{df}.
+#'
+#' @return A list with one \code{\link{dq_result}} object, or an empty list
+#'   when no scan outcome is attached to \code{df}.
+#'
+#' @examples
+#' cfg_dir <- system.file("demonstrations/config", package = "dqcheckr")
+#' cfg  <- load_config("starwars_csv", config_dir = cfg_dir)
+#' path <- system.file("demonstrations/data/starwars.csv", package = "dqcheckr")
+#' df   <- read_dataset(path, cfg)
+#' check_file_encoding(df, cfg)
+#'
+#' @export
+check_file_encoding <- function(df, config) {
+  info <- attr(df, "dq_encoding", exact = TRUE)
+  if (is.null(info)) return(list())
+  enc_class <- info$enc_class %||% "utf8"
+
+  # Definitive failure first: the file was not valid UTF-8 as declared.
+  if (isFALSE(info$valid)) {
+    guess_txt <- if (!is.null(info$guess))
+      sprintf(" The bytes look like %s.", info$guess)
+    else
+      " The actual encoding could not be determined."
+    return(list(dq_result(
+      check_id   = "QC-16",
+      check_name = "File encoding",
+      status     = "FAIL",
+      observed   = sprintf("Not valid %s; read as %s for this run.%s",
+                           info$declared, info$used, guess_txt),
+      threshold  = sprintf("declared: %s", info$declared),
+      message    = sprintf(paste0(
+        "File is not valid %s as declared in the config.%s ",
+        "It was read as %s so this run could complete; verify the supplier's ",
+        "export encoding and update 'encoding' in the dataset config."),
+        info$declared, guess_txt, info$used)
     )))
   }
-  results
+
+  # A declared multi-byte or unknown encoding (UTF-16/32, Shift-JIS, ...) is not
+  # validity-checked -- dqcheckr only scans UTF-8. Do not claim it is "valid by
+  # construction"; WARN that it was read as declared without verification.
+  if (enc_class == "other") {
+    return(list(dq_result(
+      check_id   = "QC-16",
+      check_name = "File encoding",
+      status     = "WARN",
+      observed   = sprintf(paste0("'%s' is a multi-byte or unknown encoding that ",
+                                  "dqcheckr does not validity-check."), info$used),
+      threshold  = sprintf("declared: %s", info$declared),
+      message    = paste0("File encoding was not verified: only UTF-8 and ",
+                          "single-byte encodings are checked. The file was read ",
+                          "as declared. Prefer a UTF-8 export where possible.")
+    )))
+  }
+
+  if (isTRUE(info$valid)) {
+    return(list(dq_result(
+      check_id   = "QC-16",
+      check_name = "File encoding",
+      status     = "PASS",
+      observed   = if (enc_class == "single_byte")
+        sprintf("'%s' is a single-byte encoding; every byte sequence is valid by construction.",
+                info$used)
+      else
+        sprintf("File is valid %s.", info$used),
+      threshold  = sprintf("declared: %s", info$declared),
+      message    = "File encoding matches the configuration."
+    )))
+  }
+
+  # Validity is unknown: the UTF-8 scan itself failed (e.g. out of memory on a
+  # very large delivery). Not a clean PASS -- the file was read as declared with
+  # no verification -- and not a definitive FAIL either, so WARN.
+  if (is.na(info$valid)) {
+    return(list(dq_result(
+      check_id   = "QC-16",
+      check_name = "File encoding",
+      status     = "WARN",
+      observed   = sprintf("Could not verify %s: %s", info$used,
+                           info$scan_error %||% "the encoding scan did not complete"),
+      threshold  = sprintf("declared: %s", info$declared),
+      message    = paste0("File encoding could not be verified; the file was ",
+                          "read as declared without a validity scan.")
+    )))
+  }
+
+  list()   # unreachable: valid is TRUE/FALSE/NA, all handled above
 }
 
 #' SC-01 / SC-02: Check columns against the expected schema contract
@@ -869,22 +1039,21 @@ check_outliers <- function(df, config) {
 #'
 #' @export
 check_schema_contract <- function(df, config) {
-  expected <- config$expected_columns
+  expected <- config[["expected_columns"]]
   if (is.null(expected)) return(list())
 
   results <- list()
 
   extra <- setdiff(names(df), expected)
   if (length(extra) > 0) {
-    for (col in extra)
-      results <- c(results, list(dq_result(
-        check_id   = "SC-01",
-        check_name = "Unexpected column",
-        column     = col,
-        status     = "FAIL",
-        observed   = sprintf("Column '%s' is not in the expected schema.", col),
-        message    = sprintf("Column '%s' is present in the file but not in expected_columns.", col)
-      )))
+    results <- c(results, lapply(extra, function(col) dq_result(
+      check_id   = "SC-01",
+      check_name = "Unexpected column",
+      column     = col,
+      status     = "FAIL",
+      observed   = sprintf("Column '%s' is not in the expected schema.", col),
+      message    = sprintf("Column '%s' is present in the file but not in expected_columns.", col)
+    )))
   } else {
     results <- c(results, list(dq_result(
       check_id   = "SC-01",
@@ -897,15 +1066,14 @@ check_schema_contract <- function(df, config) {
 
   missing_cols <- setdiff(expected, names(df))
   if (length(missing_cols) > 0) {
-    for (col in missing_cols)
-      results <- c(results, list(dq_result(
-        check_id   = "SC-02",
-        check_name = "Missing expected column",
-        column     = col,
-        status     = "FAIL",
-        observed   = sprintf("Expected column '%s' is absent.", col),
-        message    = sprintf("Column '%s' is in expected_columns but absent from the file.", col)
-      )))
+    results <- c(results, lapply(missing_cols, function(col) dq_result(
+      check_id   = "SC-02",
+      check_name = "Missing expected column",
+      column     = col,
+      status     = "FAIL",
+      observed   = sprintf("Expected column '%s' is absent.", col),
+      message    = sprintf("Column '%s' is in expected_columns but absent from the file.", col)
+    )))
   } else {
     results <- c(results, list(dq_result(
       check_id   = "SC-02",
@@ -921,7 +1089,7 @@ check_schema_contract <- function(df, config) {
 
 #' Run all generic quality checks on a dataset
 #'
-#' Runs the full QC check suite (QC-01 to QC-15, SC-01, SC-02) against a
+#' Runs the full QC check suite (QC-01 to QC-16, SC-01, SC-02) against a
 #' single data frame snapshot.
 #'
 #' @param df A data frame with all columns as character vectors (as returned by
@@ -930,6 +1098,9 @@ check_schema_contract <- function(df, config) {
 #'   \code{\link{load_config}}.
 #' @param file_path Character or \code{NULL}. Absolute path to the file, used
 #'   for the optional \code{max_file_size_mb} check in QC-14.
+#' @param types Optional named character vector of pre-resolved column types;
+#'   see \code{\link{check_inferred_types}}. When \code{NULL} (the default),
+#'   types are resolved once here and shared by all type-dependent checks.
 #'
 #' @return A list of \code{\link{dq_result}} objects.
 #'
@@ -941,23 +1112,25 @@ check_schema_contract <- function(df, config) {
 #' results <- run_qc_checks(df, cfg)
 #'
 #' @export
-run_qc_checks <- function(df, config, file_path = NULL) {
+run_qc_checks <- function(df, config, file_path = NULL, types = NULL) {
+  types <- types %||% resolve_col_types(df, config)
   c(
+    check_file_encoding(df, config),
     check_missing_rate(df, config),
     check_empty_column(df, config),
     check_duplicate_rows(df, config),
     check_row_count(df, config),
     check_col_count(df, config),
-    check_inferred_types(df, config),
-    check_numeric_stats(df, config),
-    check_distinct_counts(df, config),
+    check_inferred_types(df, config, types = types),
+    check_numeric_stats(df, config, types = types),
+    check_distinct_counts(df, config, types = types),
     check_allowed_values(df, config),
     check_numeric_bounds(df, config),
-    check_non_numeric(df, config),
+    check_non_numeric(df, config, types = types),
     check_key_uniqueness(df, config),
     check_pattern(df, config),
     check_min_row_count(df, config, file_path = file_path),
-    check_outliers(df, config),
+    check_outliers(df, config, types = types),
     check_schema_contract(df, config)
   )
 }

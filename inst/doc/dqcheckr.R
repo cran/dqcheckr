@@ -66,6 +66,7 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 # check_pattern(df, cfg)            # QC-13
 # check_min_row_count(df, cfg)      # QC-14
 # check_outliers(df, cfg)           # QC-15
+# check_file_encoding(df, cfg)      # QC-16
 # check_schema_contract(df, cfg)    # SC-01 / SC-02
 # 
 # # Inspect a result

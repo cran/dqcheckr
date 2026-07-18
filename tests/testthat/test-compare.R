@@ -72,6 +72,17 @@ test_that("compare_schema() returns WARN on type change (CP-02c)", {
   expect_equal(res[[3]]$check_id, "CP-02c")
 })
 
+test_that("compare_schema() does not flag CP-02c when a column was blank last time", {
+  # account_balance is all-empty in the previous delivery -> infers "unknown".
+  # A populated column this time is not a genuine type change (B-01 regression).
+  prev                 <- make_prev()
+  prev$account_balance <- c("", "", "", "", "")
+  res <- compare_schema(make_curr(), prev, base_config())
+  expect_equal(res[[3]]$check_id, "CP-02c")
+  expect_equal(res[[3]]$status, "PASS")
+  expect_length(attr(res, "type_changed_cols"), 0)
+})
+
 test_that("compare_schema() returns 3 results with correct check_ids", {
   res <- compare_schema(make_curr(), make_prev(), base_config())
   expect_length(res, 3L)
@@ -285,4 +296,64 @@ test_that("run_comparison_checks() carries type_changed_cols attribute", {
   res <- run_comparison_checks(curr, make_prev(), base_config())
   tc  <- attr(res, "type_changed_cols")
   expect_true(any(grepl("account_balance", tc)))
+})
+
+# -- Zero-row current delivery (0.2.3, B-01) ------------------------------------
+
+test_that("run_comparison_checks() handles a zero-row current delivery without error", {
+  prev <- make_accounts_df()
+  curr <- prev[0, ]
+  res  <- run_comparison_checks(curr, prev, base_config())
+  expect_true(length(res) > 0)
+  statuses <- vapply(res, `[[`, character(1), "status")
+  expect_true(all(statuses %in% c("PASS", "WARN", "FAIL", "INFO")))
+})
+
+# -- CP-04 unparseable current column (0.2.3, B-02) -------------------------------
+
+test_that("CP-04 emits WARN instead of erroring when the current column has no parseable numerics", {
+  prev <- make_accounts_df()
+  curr <- make_accounts_df()
+  curr$account_balance <- letters[1:5]                       # nothing parses
+  cfg  <- base_config(list(column_types = list(account_balance = "numeric")))
+  res  <- run_comparison_checks(curr, prev, cfg)
+  cp04 <- Filter(\(r) r$check_id == "CP-04" &&
+                      !is.na(r$column) && r$column == "account_balance", res)
+  expect_length(cp04, 1)
+  expect_equal(cp04[[1]]$status, "WARN")
+  expect_match(cp04[[1]]$message, "cannot be computed")
+})
+
+# -- CP-04 non-finite literal in a numeric column (B-01) -------------------------
+
+test_that("CP-04 does not crash the run on a literal 'Inf' value", {
+  # as.numeric("Inf") is Inf, not NA, so an Inf-bearing column still classifies
+  # as numeric and reaches compare_numeric_mean(). A non-finite mean used to slip
+  # past the is.nan/==0 guard and make shift_pct NaN, aborting the whole run at
+  # `if (shift_pct > threshold)`. Finite values must be filtered first.
+  prev <- make_accounts_df()
+  curr <- make_accounts_df()
+  prev$account_balance <- c("100", "200", "300", "Inf", "500")
+  cfg  <- base_config(list(column_types = list(account_balance = "numeric")))
+  expect_no_error(res <- run_comparison_checks(curr, prev, cfg))
+  cp04 <- Filter(\(r) r$check_id == "CP-04" &&
+                      !is.na(r$column) && r$column == "account_balance", res)
+  expect_length(cp04, 1)
+  expect_true(cp04[[1]]$status %in% c("PASS", "WARN"))
+})
+
+# -- Precomputed types argument (0.2.3, P-01) -----------------------------------
+
+test_that("run_comparison_checks() with precomputed types matches default behaviour", {
+  curr <- make_accounts_df()
+  prev <- make_accounts_df()
+  prev$account_balance <- c("100", "200", "300", "400", "500")
+  cfg  <- base_config()
+  types_curr <- vapply(names(curr), \(c) resolve_col_type(c, curr[[c]], cfg), character(1))
+  types_prev <- vapply(names(prev), \(c) resolve_col_type(c, prev[[c]], cfg), character(1))
+  expect_identical(
+    run_comparison_checks(curr, prev, cfg,
+                          types_current = types_curr, types_previous = types_prev),
+    run_comparison_checks(curr, prev, cfg)
+  )
 })

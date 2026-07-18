@@ -4,7 +4,7 @@
 \alias{run_qc_checks}
 \title{Run all generic quality checks on a dataset}
 \usage{
-run_qc_checks(df, config, file_path = NULL)
+run_qc_checks(df, config, file_path = NULL, types = NULL)
 }
 \arguments{
 \item{df}{A data frame with all columns as character vectors (as returned by
@@ -15,12 +15,16 @@ run_qc_checks(df, config, file_path = NULL)
 
 \item{file_path}{Character or \code{NULL}. Absolute path to the file, used
 for the optional \code{max_file_size_mb} check in QC-14.}
+
+\item{types}{Optional named character vector of pre-resolved column types;
+see \code{\link{check_inferred_types}}. When \code{NULL} (the default),
+types are resolved once here and shared by all type-dependent checks.}
 }
 \value{
 A list of \code{\link{dq_result}} objects.
 }
 \description{
-Runs the full QC check suite (QC-01 to QC-15, SC-01, SC-02) against a
+Runs the full QC check suite (QC-01 to QC-16, SC-01, SC-02) against a
 single data frame snapshot.
 }
 \examples{

@@ -103,6 +103,17 @@ test_that("read_dataset() reads FWF file correctly", {
   expect_equal(nrow(df), 10)
 })
 
+test_that("read_dataset() aborts when an FWF config omits fwf_widths (B-05)", {
+  # fwf_widths is mandatory for fixed-width files; the guard must raise a typed
+  # dqcheckr_invalid_config rather than let readr::fwf_widths(NULL) fail with an
+  # opaque error.
+  cfg <- list(format = "fwf", encoding = "UTF-8")
+  expect_error(
+    read_dataset(fix("accounts_fwf_current.txt"), cfg),
+    class = "dqcheckr_invalid_config"
+  )
+})
+
 # -- detect_files() ------------------------------------------------------------
 
 test_that("detect_files() uses current_file when set; previous NULL when absent (D-01)", {
@@ -171,4 +182,50 @@ test_that("detect_files() uses filename as tiebreaker when mtimes are equal (RC-
   # basename "b_delivery.csv" > "a_delivery.csv" descending → b is current
   expect_equal(basename(result$current),  "b_delivery.csv")
   expect_equal(basename(result$previous), "a_delivery.csv")
+})
+
+test_that("detect_files() mtime tie-break is locale-independent (B-19)", {
+  tmp  <- withr::local_tempdir()
+  f_up <- file.path(tmp, "B_delivery.csv")   # 'B' (0x42) sorts before 'a' (0x61)
+  f_lo <- file.path(tmp, "a_delivery.csv")   #   in C byte order
+  writeLines("x\n2", f_up)
+  writeLines("x\n1", f_lo)
+  t0 <- as.POSIXct("2024-01-01 12:00:00", tz = "UTC")
+  Sys.setFileTime(f_up, t0)
+  Sys.setFileTime(f_lo, t0)
+
+  pick <- function(loc) {
+    old <- Sys.getlocale("LC_COLLATE")
+    if (suppressWarnings(Sys.setlocale("LC_COLLATE", loc)) == "") return(NA_character_)
+    on.exit(Sys.setlocale("LC_COLLATE", old), add = TRUE)
+    basename(detect_files(list(folder = tmp))$current)
+  }
+  # C byte order: 'a' (97) > 'B' (66), so descending makes a_delivery current.
+  expect_equal(pick("C"), "a_delivery.csv")
+  # A case-folding locale must not change the choice (skip if unavailable).
+  en <- pick("en_US.UTF-8")
+  if (!is.na(en)) expect_equal(en, "a_delivery.csv")
+})
+
+# -- detect_files() ignores directories (0.2.3, B-03) -----------------------------
+
+test_that("detect_files() ignores subdirectories in folder mode", {
+  folder <- tempfile("dqdir_")
+  dir.create(folder)
+  on.exit(unlink(folder, recursive = TRUE))
+  data_file <- file.path(folder, "delivery.csv")
+  writeLines(c("id,name", "1,a"), data_file)
+  Sys.sleep(0.05)
+  dir.create(file.path(folder, "archive"))   # newer mtime than the data file
+  files <- detect_files(list(folder = folder))
+  expect_equal(files$current, data_file)
+  expect_null(files$previous)
+})
+
+test_that("detect_files() errors when a folder contains only subdirectories", {
+  folder <- tempfile("dqdir_")
+  dir.create(file.path(folder, "only_subdir"), recursive = TRUE)
+  on.exit(unlink(folder, recursive = TRUE))
+  expect_error(detect_files(list(folder = folder)),
+               class = "dqcheckr_missing_file")
 })

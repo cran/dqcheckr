@@ -134,6 +134,31 @@ test_that("check_allowed_values() returns empty list when no column_rules", {
   expect_equal(length(res), 0)
 })
 
+test_that("check_allowed_values() compares numerics in a mixed number/string list (B-22)", {
+  # A YAML list [2.1, 3.5, "N/A"] unlists to all-character, which previously
+  # disabled the numeric comparison so "2.10" FAILed against 2.1.
+  df  <- data.frame(amt = c("2.10", "3.5", "N/A", "9.9"), stringsAsFactors = FALSE)
+  cfg <- base_config(list(column_rules = list(
+    amt = list(allowed_values = list(2.1, 3.5, "N/A"))
+  )))
+  res <- Filter(\(r) r$column == "amt", check_allowed_values(df, cfg))[[1]]
+  expect_equal(res$status, "FAIL")             # only 9.9 is disallowed
+  expect_match(res$observed, "9.9")
+  expect_false(grepl("2.10", res$observed))    # accepted as == 2.1
+})
+
+test_that("check_allowed_values() does not accept a numeric match against a STRING allowed value (B-22)", {
+  # "007" is a string in the allowed list; a file value of "7" must NOT match it
+  # (the fix compares only genuinely-numeric allowed entries numerically).
+  df  <- data.frame(code = c("007", "7"), stringsAsFactors = FALSE)
+  cfg <- base_config(list(column_rules = list(
+    code = list(allowed_values = list("007", "008"))
+  )))
+  res <- Filter(\(r) r$column == "code", check_allowed_values(df, cfg))[[1]]
+  expect_equal(res$status, "FAIL")
+  expect_match(res$observed, "7")
+})
+
 # -- QC-10 Numeric bounds ------------------------------------------------------
 
 test_that("check_numeric_bounds() returns PASS when all values within range", {
@@ -429,4 +454,111 @@ test_that("check_outliers() skips non-numeric columns", {
   )))
   res <- check_outliers(df, cfg)
   expect_length(res, 0)  # no results for character column
+})
+
+# -- Zero-row deliveries (0.2.3, B-01) ------------------------------------------
+
+test_that("check_missing_rate() handles a zero-row data frame without error", {
+  df  <- make_accounts_df()[0, ]
+  res <- check_missing_rate(df, base_config())
+  statuses <- vapply(res, `[[`, character(1), "status")
+  expect_true(all(statuses == "PASS"))   # rates defined as 0 for empty input
+})
+
+test_that("run_qc_checks() on a zero-row data frame completes and FAILs via QC-14 'Empty file'", {
+  df  <- make_accounts_df()[0, ]
+  res <- run_qc_checks(df, base_config())
+  empty <- Filter(\(r) r$check_name == "Empty file", res)
+  expect_length(empty, 1)
+  expect_equal(empty[[1]]$status, "FAIL")
+  expect_equal(overall_status(res), "FAIL")
+})
+
+test_that("QC-14 'Empty file' fires even when min_row_count is 0 (disabled)", {
+  df  <- make_accounts_df()[0, ]
+  res <- check_min_row_count(df, base_config())   # base_config: min_row_count = 0
+  empty <- Filter(\(r) r$check_name == "Empty file", res)
+  expect_length(empty, 1)
+  expect_equal(empty[[1]]$status, "FAIL")
+})
+
+test_that("QC-14 emits no 'Empty file' result for a non-empty file", {
+  res <- check_min_row_count(make_accounts_df(), base_config())
+  expect_length(Filter(\(r) r$check_name == "Empty file", res), 0)
+})
+
+# -- QC-13 invalid regex (0.2.3, B-09) ------------------------------------------
+
+test_that("check_pattern() FAILs (not errors) on an invalid regex from config", {
+  cfg <- base_config(list(column_rules = list(id = list(pattern = "([A-"))))
+  res <- check_pattern(make_accounts_df(), cfg)
+  expect_length(res, 1)
+  expect_equal(res[[1]]$status, "FAIL")
+  expect_match(res[[1]]$message, "invalid regex")
+})
+
+test_that("check_pattern() still evaluates valid patterns normally", {
+  cfg <- base_config(list(column_rules = list(id = list(pattern = "^ID[0-9]{3}$"))))
+  res <- check_pattern(make_accounts_df(), cfg)
+  expect_equal(res[[1]]$status, "PASS")
+})
+
+# -- Precomputed types argument (0.2.3, P-01) -----------------------------------
+
+test_that("run_qc_checks() with precomputed types matches default behaviour", {
+  df    <- make_accounts_df()
+  cfg   <- base_config()
+  types <- vapply(names(df), \(c) resolve_col_type(c, df[[c]], cfg), character(1))
+  expect_identical(run_qc_checks(df, cfg, types = types),
+                   run_qc_checks(df, cfg))
+})
+
+test_that("type-dependent checks honour a supplied types map", {
+  df  <- make_accounts_df()
+  cfg <- base_config()
+  all_char <- setNames(rep("character", ncol(df)), names(df))
+  expect_length(check_numeric_stats(df, cfg, types = all_char), 0)
+  inferred <- check_inferred_types(df, cfg, types = all_char)
+  expect_true(all(vapply(inferred, \(r) r$observed == "character", logical(1))))
+})
+
+# -- QC-10 counts rows, not unique values (0.2.3, L-02) ---------------------------
+
+test_that("check_numeric_bounds() counts violating rows", {
+  df  <- make_accounts_df()
+  df$account_balance <- c("-5", "-5", "-5", "100", "200")
+  cfg <- base_config(list(column_rules = list(account_balance = list(min_value = 0))))
+  res <- check_numeric_bounds(df, cfg)
+  expect_equal(res[[1]]$status, "FAIL")
+  expect_match(res[[1]]$message, "3 out-of-range row\\(s\\)")
+  expect_match(res[[1]]$message, "1 distinct value\\(s\\)")
+})
+
+# -- QC-09 numeric allowed_values coercion (0.2.3, L-03) --------------------------
+
+test_that("check_allowed_values() matches numeric YAML values across formatting", {
+  df  <- make_accounts_df()
+  df$account_balance <- c("1", "2.10", "2.1", "1.0", "2.100")
+  cfg <- base_config(list(column_rules = list(
+    account_balance = list(allowed_values = c(1, 2.1)))))   # numeric, as YAML gives
+  res <- check_allowed_values(df, cfg)
+  expect_equal(res[[1]]$status, "PASS")
+})
+
+test_that("check_allowed_values() still FAILs genuinely disallowed values", {
+  df  <- make_accounts_df()
+  df$account_balance <- c("1", "2.1", "99", "1", "2.1")
+  cfg <- base_config(list(column_rules = list(
+    account_balance = list(allowed_values = c(1, 2.1)))))
+  res <- check_allowed_values(df, cfg)
+  expect_equal(res[[1]]$status, "FAIL")
+  expect_match(res[[1]]$observed, "99")
+})
+
+test_that("check_allowed_values() character rules keep exact string matching", {
+  df  <- make_accounts_df()
+  cfg <- base_config(list(column_rules = list(
+    country_code = list(allowed_values = c("GB", "US", "DE", "FR")))))
+  res <- check_allowed_values(df, cfg)
+  expect_equal(res[[1]]$status, "PASS")
 })

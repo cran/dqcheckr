@@ -380,11 +380,12 @@ invisibly.</p>
 from source:</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>devtools<span class="sc">::</span><span class="fu">install</span>(<span class="st">&quot;path/to/dqr/dqcheckr&quot;</span>)</span>
 <span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">library</span>(dqcheckr)</span></code></pre></div>
-<p>All dependencies are on CRAN: <code>readr</code>, <code>DBI</code>,
-<code>RSQLite</code>, <code>rmarkdown</code>, <code>knitr</code>,
-<code>kableExtra</code>, <code>ggplot2</code>, <code>gridExtra</code>,
-<code>yaml</code>, <code>dplyr</code>, <code>tidyr</code>,
-<code>rlang</code>.</p>
+<p>All dependencies are on CRAN: <code>readr</code>,
+<code>stringi</code>, <code>DBI</code>, <code>RSQLite</code>,
+<code>quarto</code>, <code>knitr</code>, <code>kableExtra</code>,
+<code>ggplot2</code>, <code>gridExtra</code>, <code>yaml</code>,
+<code>tidyr</code>, <code>rlang</code>. Report rendering additionally
+needs the Quarto CLI installed separately (see <a href="https://quarto.org" class="uri">https://quarto.org</a>).</p>
 <hr />
 </div>
 <div id="configuration" class="section level2">
@@ -493,9 +494,10 @@ everything else inherits from the global defaults.</p>
 </div>
 <div id="what-is-required-vs-optional" class="section level3">
 <h3>What is required vs optional</h3>
-<p>The only fields the package requires to run are the file location
-(<code>folder</code> or <code>current_file</code>) and the
-<code>format</code>. Every other config key is optional — the
+<p>The fields the package requires to run are the file location
+(<code>folder</code> or <code>current_file</code>), the
+<code>format</code>, and — for <code>format: fwf</code> —
+<code>fwf_widths</code>. Every other config key is optional — the
 corresponding checks are simply skipped when the key is absent.</p>
 <table>
 <colgroup>
@@ -509,6 +511,18 @@ corresponding checks are simply skipped when the key is absent.</p>
 </tr>
 </thead>
 <tbody>
+<tr class="odd">
+<td><code>fwf_widths</code></td>
+<td><strong>Required</strong> for <code>format: fwf</code>; the run
+aborts with <code>dqcheckr_invalid_config</code> if absent. Ignored for
+CSV</td>
+</tr>
+<tr class="even">
+<td><code>column_types</code></td>
+<td>Column types are inferred (see C.5) instead of pinned; each value
+must be <code>character</code>, <code>numeric</code>, or
+<code>date</code></td>
+</tr>
 <tr class="odd">
 <td><code>key_columns</code></td>
 <td>QC-12 (key uniqueness) skipped</td>
@@ -747,6 +761,16 @@ composite)</td>
 fence (<code>iqr_fence_multiplier</code>)</td>
 <td>FAIL</td>
 </tr>
+<tr class="even">
+<td>QC-16</td>
+<td>File encoding</td>
+<td>Delivery not valid UTF-8 as declared (file scanned in chunks; run
+completes via a single-byte fallback and reports the likely actual
+encoding). WARN when the encoding is multi-byte/unknown (e.g. UTF-16,
+Shift-JIS) and so not validity-checked, or when the scan itself could
+not complete</td>
+<td>FAIL / WARN</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -969,18 +993,19 @@ objects.</p>
 <span id="cb12-33"><a href="#cb12-33" tabindex="-1"></a><span class="fu">check_pattern</span>(df, cfg)            <span class="co"># QC-13</span></span>
 <span id="cb12-34"><a href="#cb12-34" tabindex="-1"></a><span class="fu">check_min_row_count</span>(df, cfg)      <span class="co"># QC-14</span></span>
 <span id="cb12-35"><a href="#cb12-35" tabindex="-1"></a><span class="fu">check_outliers</span>(df, cfg)           <span class="co"># QC-15</span></span>
-<span id="cb12-36"><a href="#cb12-36" tabindex="-1"></a><span class="fu">check_schema_contract</span>(df, cfg)    <span class="co"># SC-01 / SC-02</span></span>
-<span id="cb12-37"><a href="#cb12-37" tabindex="-1"></a></span>
-<span id="cb12-38"><a href="#cb12-38" tabindex="-1"></a><span class="co"># Inspect a result</span></span>
-<span id="cb12-39"><a href="#cb12-39" tabindex="-1"></a>r <span class="ot">&lt;-</span> <span class="fu">check_missing_rate</span>(df, cfg)[[<span class="dv">1</span>]]</span>
-<span id="cb12-40"><a href="#cb12-40" tabindex="-1"></a>r<span class="sc">$</span>status    <span class="co"># &quot;PASS&quot; or &quot;FAIL&quot;</span></span>
-<span id="cb12-41"><a href="#cb12-41" tabindex="-1"></a>r<span class="sc">$</span>observed  <span class="co"># e.g. &quot;3.2% missing (4 of 125)&quot;</span></span>
-<span id="cb12-42"><a href="#cb12-42" tabindex="-1"></a></span>
-<span id="cb12-43"><a href="#cb12-43" tabindex="-1"></a><span class="co"># Run all single-snapshot checks at once</span></span>
-<span id="cb12-44"><a href="#cb12-44" tabindex="-1"></a>all_results <span class="ot">&lt;-</span> <span class="fu">run_qc_checks</span>(df, cfg)</span>
-<span id="cb12-45"><a href="#cb12-45" tabindex="-1"></a></span>
-<span id="cb12-46"><a href="#cb12-46" tabindex="-1"></a><span class="co"># Overall status across any result list</span></span>
-<span id="cb12-47"><a href="#cb12-47" tabindex="-1"></a><span class="fu">overall_status</span>(all_results)  <span class="co"># &quot;FAIL&quot; &gt; &quot;WARN&quot; &gt; &quot;PASS&quot; &gt; &quot;INFO&quot;</span></span></code></pre></div>
+<span id="cb12-36"><a href="#cb12-36" tabindex="-1"></a><span class="fu">check_file_encoding</span>(df, cfg)      <span class="co"># QC-16</span></span>
+<span id="cb12-37"><a href="#cb12-37" tabindex="-1"></a><span class="fu">check_schema_contract</span>(df, cfg)    <span class="co"># SC-01 / SC-02</span></span>
+<span id="cb12-38"><a href="#cb12-38" tabindex="-1"></a></span>
+<span id="cb12-39"><a href="#cb12-39" tabindex="-1"></a><span class="co"># Inspect a result</span></span>
+<span id="cb12-40"><a href="#cb12-40" tabindex="-1"></a>r <span class="ot">&lt;-</span> <span class="fu">check_missing_rate</span>(df, cfg)[[<span class="dv">1</span>]]</span>
+<span id="cb12-41"><a href="#cb12-41" tabindex="-1"></a>r<span class="sc">$</span>status    <span class="co"># &quot;PASS&quot; or &quot;FAIL&quot;</span></span>
+<span id="cb12-42"><a href="#cb12-42" tabindex="-1"></a>r<span class="sc">$</span>observed  <span class="co"># e.g. &quot;3.2% missing (4 of 125)&quot;</span></span>
+<span id="cb12-43"><a href="#cb12-43" tabindex="-1"></a></span>
+<span id="cb12-44"><a href="#cb12-44" tabindex="-1"></a><span class="co"># Run all single-snapshot checks at once</span></span>
+<span id="cb12-45"><a href="#cb12-45" tabindex="-1"></a>all_results <span class="ot">&lt;-</span> <span class="fu">run_qc_checks</span>(df, cfg)</span>
+<span id="cb12-46"><a href="#cb12-46" tabindex="-1"></a></span>
+<span id="cb12-47"><a href="#cb12-47" tabindex="-1"></a><span class="co"># Overall status across any result list</span></span>
+<span id="cb12-48"><a href="#cb12-48" tabindex="-1"></a><span class="fu">overall_status</span>(all_results)  <span class="co"># &quot;FAIL&quot; &gt; &quot;WARN&quot; &gt; &quot;PASS&quot; &gt; &quot;INFO&quot;</span></span></code></pre></div>
 <hr />
 </div>
 <div id="custom-checks" class="section level2">

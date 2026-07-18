@@ -24,8 +24,10 @@ If \code{NULL}, defaults to the second-most-recent snapshot by ID.}
 If \code{NULL}, defaults to the most-recent snapshot by ID.}
 
 \item{db_path}{Character or \code{NULL}. Path to the SQLite snapshot
-database. If \code{NULL} (the default), the path is read from
-\code{snapshot_db} in \code{dqcheckr.yml}.}
+database. If \code{NULL} (the default), the path is resolved from
+\code{snapshot_db} the same way \code{\link{run_dq_check}} resolves it:
+from \code{<dataset_name>.yml} if set there, otherwise \code{dqcheckr.yml},
+otherwise the built-in default \code{"data/snapshots.sqlite"}.}
 
 \item{config_dir}{Character. Path to the directory containing
 \code{dqcheckr.yml}. Used to read thresholds, \code{report_output_dir},
@@ -40,12 +42,20 @@ after rendering (only takes effect in interactive sessions).}
 Invisibly, a named list with elements \code{dataset_name},
   \code{snap_prev}, \code{snap_curr}, \code{table_drift},
   \code{schema_changes}, \code{missing_rate_changes},
-  \code{non_numeric_changes}, \code{mean_shifts}, \code{distinct_changes}.
+  \code{non_numeric_changes}, \code{mean_shifts}, \code{distinct_changes},
+  and \code{report_path} (the full path to the rendered HTML drift report, or
+  \code{NULL} when no report was written). Callers should use
+  \code{report_path} rather than reconstructing the filename from a pattern.
 }
 \description{
 Reads two historical snapshot records (by ID) from the SQLite database and
 computes table-level, schema, and per-column statistical drift. Optionally
 renders an HTML drift report.
+}
+\note{
+As with \code{\link{run_dq_check}}, a relative \code{snapshot_db} or
+  \code{report_output_dir} from the config resolves against the R
+  process's working directory, not against \code{config_dir}.
 }
 \examples{
 \donttest{

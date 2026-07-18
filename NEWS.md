@@ -1,3 +1,321 @@
+# dqcheckr 0.2.5
+
+## Internal
+
+* The per-column check loops (QC-07/08/09/10/11/13/15, SC-01/02, and the
+  comparison checks CP-04/05/06/07) no longer grow their result list with
+  `c(results, list(...))` inside a `for` loop, which reallocated the whole list
+  on every column and made a run O(columns^2). They now build results with
+  `lapply()` and compact once, so wide deliveries (100+ columns) build their
+  results in linear time. Check output is unchanged.
+
+* The missing/empty predicate (`is.na(x) | x == ""`) and the four
+  comparison-check default thresholds are each now defined once and shared by
+  the QC checks, the comparison checks, the drift report, and the snapshot
+  writer, instead of being reimplemented at each call site. This removes the
+  risk of, for example, the QC report and the drift report applying different
+  default thresholds to the same rule after only one copy was edited.
+
+* The shared Quarto render pipeline (render into a temp dir, verify an output
+  file was produced, abort with `dqcheckr_render_error` if not, then move the
+  result into place) is now a single internal helper (`.quarto_render_to_file()`)
+  called by both the main report writer and the drift report writer, instead of
+  being duplicated near-verbatim in each. A future change to the render pipeline
+  now lands in one place rather than needing to be mirrored by hand.
+
+## Testing
+
+* Added coverage for two previously-untested error paths: an FWF config that
+  omits `fwf_widths` (must abort with `dqcheckr_invalid_config`), and
+  `render_report()` when Quarto returns without writing an output file (must
+  abort with `dqcheckr_render_error` rather than name a report that does not
+  exist).
+
+## Bug fixes
+
+* The CP-04 numeric-mean-shift comparison no longer aborts the whole run when a
+  numeric column contains a literal `Inf`/`-Inf` value. `as.numeric("Inf")` is
+  `Inf` (not `NA`), so such a column still classifies as numeric and reached the
+  mean comparison; a non-finite mean slipped past the guard and made the shift
+  `NaN`, which crashed the pipeline at `if (shift_pct > threshold)`. The check now
+  filters to finite values first (as `check_outliers()` and `compute_col_stats()`
+  already do), so an `Inf`-bearing column is handled as a warning rather than a
+  crash. R's own `write.csv()` emits the literal `Inf`, so this is a realistic
+  corrupted-delivery input.
+
+* `compare_snapshots()` now rejects a `NULL` or empty `dataset_name` with a clear
+  `dqcheckr_invalid_argument` error instead of aborting with an empty message. A
+  `NULL` bound as SQL `NULL` (matching no rows) and the "need 2 snapshots" abort
+  then collapsed to a zero-length, blank-text condition.
+
+* `read_recent_snapshots()` now clamps a negative `n` to `0` rather than returning
+  the entire history. SQLite reads `LIMIT -1` as "no limit", so a negative `n`
+  silently returned every row instead of capping the result as documented.
+
+* `compare_snapshots()` now returns the rendered drift report's path as a
+  `report_path` element on its result (`NULL` when no report was written), so a
+  caller can link to the report directly instead of reconstructing the filename
+  from a slug pattern -- the reconstruction approach is fragile and broke when
+  the drift filename gained its snapshot ids.
+
+* A snapshot's `render_status` now carries a `"pending"` state while its report
+  is still rendering. The row is written as `"pending"` and only flipped to
+  `"success"` (with `report_file`) once the report is confirmed on disk, or to
+  `"failed"` if the render is skipped or errors. Previously the row was written
+  as `"success"` with a NULL `report_file` before the render finished, which a
+  concurrent reader could not tell apart from a completed pre-0.2.3 row and would
+  turn into a broken report link. Consumers linking to a report should treat a
+  `"pending"` row as not-yet-available rather than reconstructing a filename.
+
+* The drift report no longer silently reports a report that was never written.
+  When Quarto returned without error but produced no output file,
+  `compare_snapshots()` still announced (and, with `open_report = TRUE`, tried to
+  open) the intended path. The drift writer now raises the same typed error the
+  main report already did, and `compare_snapshots()` downgrades it to a warning
+  with no report link -- the computed drift is still returned.
+
+* Drift report filenames now include both compared snapshot ids
+  (`drift_dataset_20260718_010203_1_2.html`), so two comparisons of one dataset
+  started in the same wall-clock second (a loop over id pairs, two GUI users) no
+  longer collide on a single filename and silently overwrite each other -- the
+  same protection `report_filename()` already gives the main report.
+
+* Column statistics can no longer store a non-finite value even when the
+  aggregate itself overflows. An earlier fix excluded non-finite *inputs*
+  (`Inf`/`-Inf` from a corrupted delivery), but `sd()` of finite-but-very-large
+  values still overflows the double range internally and returned `Inf`, which
+  was stored as the literal string `"Inf"` and poisoned drift arithmetic. Every
+  numeric aggregate is now serialised through a finiteness guard (non-finite ->
+  `NA`), and the drift reader maps any non-finite value parsed from an older
+  database to `NA` as well, so a snapshot written before this fix cannot
+  re-poison a comparison.
+
+* Report filenames now include the snapshot id
+  (`dataset_20260718_010203_47.html`), so two runs of one dataset that start in
+  the same wall-clock second no longer collide on a single filename. Previously
+  the second run silently overwrote the first run's report while the first run's
+  snapshot kept pointing at it. The filename is now written to the snapshot's
+  `report_file` column by an update after the report is confirmed rendered,
+  rather than optimistically at insert time, so the column can never name a
+  report that was not written.
+
+* Configuration lookups no longer partial-match. R's `$` operator falls back to
+  a prefix match when the exact element is absent, so a config with no
+  `column_rules:` key but a parked or mistyped one (`column_rules_disabled`,
+  `column_rules_old`, ...) had that section silently drive per-column
+  thresholds -- producing wrong PASS/FAIL verdicts from a section the config
+  did not contain. Every config-key access now uses exact `[[ ]]` indexing, so
+  a parked or renamed section is correctly treated as absent.
+
+* QC-16 no longer reports a spurious clean pass for a delivery whose encoding it
+  did not actually verify. A declared multi-byte or unknown encoding
+  (`UTF-16LE`, `UTF-32`, `Shift-JIS`, `GB18030`, ...) used to be reported as
+  "a single-byte encoding; every byte is valid by construction" -- which is
+  false, and which also silently disabled the crash guard that scanning gives
+  UTF-8 deliveries. Such an encoding is now read as declared but reported as a
+  WARN stating it was not validity-checked. Genuine single-byte encodings
+  (ISO-8859-x, Windows-125x) still PASS.
+
+* The UTF-8 validity scan now streams the file in bounded chunks instead of
+  reading it into one in-memory vector, so an arbitrarily large delivery is
+  verified in flat memory rather than exhausting it on the network-share hosts
+  dqcheckr deploys to.
+
+* Non-finite values in a numeric column (`Inf`/`-Inf`, e.g. from a corrupted
+  upstream delivery whose CSV contains the literal text "Inf") are no longer
+  mishandled. `compute_col_stats()` excludes them from the mean, standard
+  deviation, minimum, and maximum, so the snapshot database can no longer store
+  the literal string "NaN"/"Inf" and poison later drift comparisons; the finite
+  mean shift a contaminated delivery causes is still reported as drift.
+  `check_outliers()` (QC-15), which previously aborted with an uninformative
+  "missing value where TRUE/FALSE needed" on such a column, now runs cleanly.
+
+* A zero-column delivery (for example an empty file) is now recorded. Previously
+  `compute_col_stats()` returned `NULL`, and the snapshot write then failed and
+  lost the entire run; the run is now snapshotted with a column count of zero.
+
+* Failures that were previously swallowed into silent, benign-looking results
+  are now surfaced.
+  - `read_recent_snapshots()` and `list_snapshots()` no longer report a
+    corrupt, locked, or unreadable database as an empty history. They emit a
+    warning naming the cause before returning the empty frame, so "the read
+    failed" is distinguishable from "no runs yet".
+  - When the snapshot write fails, `run_dq_check()` now appends
+    "[snapshot NOT recorded]" to its result line instead of printing an
+    unqualified success while the history row was lost.
+  - QC-16 no longer reports a confident PASS when the UTF-8 validity scan itself
+    fails (for example, out of memory on a very large delivery). It reports a
+    WARN stating the encoding could not be verified, rather than a PASS whose
+    rationale wrongly called UTF-8 "a single-byte encoding, valid by
+    construction".
+
+* Concurrent runs sharing one snapshot database no longer lose a snapshot or die
+  during migration. Connections now set `PRAGMA busy_timeout`, so a run that
+  meets a database another run is writing waits for the lock instead of failing
+  instantly (its snapshot was previously swallowed into a warning). Schema
+  creation and the auto-migration of older databases now run inside a single
+  `BEGIN IMMEDIATE` transaction, so two first-runs after an upgrade can no
+  longer both add the same column (the loser used to die with "duplicate column
+  name"). WAL journalling is intentionally not used, as it is unsafe on the
+  network file systems dqcheckr is deployed on.
+
+* `init_snapshot_db()` no longer modifies a `snapshots` table it did not create.
+  If the target database already contains an unrelated table of that name, it
+  now aborts with a typed `dqcheckr_schema_error` instead of altering the user's
+  table. Column-existence checks during migration are now case-insensitive,
+  matching SQLite, so a column stored as e.g. `Report_File` is recognised rather
+  than re-added.
+
+* The drift report now flags a missing-rate or non-numeric-rate change in the
+  same direction as the corresponding comparison check. Both `.compute_drift()`
+  columns used `abs()`, so a column that *improved* between deliveries (fewer
+  missing values, or less non-numeric junk) was flagged as breaching, while the
+  CP-03 and CP-07 checks -- reading the same `max_missing_rate_change_pp` /
+  `max_non_numeric_rate_change_pp` thresholds -- passed it. Drift now breaches
+  only on an increase, matching the checks. (The numeric-mean-shift drift keeps
+  its two-directional test, matching the two-directional CP-04 check.)
+
+* A run whose HTML report is not produced no longer records a successful-looking
+  snapshot. When the Quarto CLI is absent the report is skipped with a warning,
+  but the snapshot row previously kept `render_status = "success"` and a
+  `report_file` naming a report that was never written, so history readers (and
+  the GUI's "Open report" link) pointed at a file that 404s. The snapshot is now
+  reconciled against what actually happened: if no report file exists the row is
+  marked `render_status = "failed"` and its `report_file` is cleared. Rendering
+  that returns without producing a file now raises instead of reporting success,
+  and `report_file` is guaranteed to name a report that exists.
+
+* Column type inference no longer misclassifies a value whose *prefix* happens
+  to be a date. `as.Date()` matches a prefix and silently ignores trailing
+  characters, so `"2024-01-15x"` and the 9-digit id `"202401159"` (whose first
+  eight digits parse under `%Y%m%d`) were both classified as `"date"` — which
+  made corrupt dates pass QC-06 and stripped the numeric checks (QC-07/08/11)
+  from id columns of eight or more digits. Each date format is now gated on an
+  anchored shape before calendar validation. The documented caveat is
+  unchanged: a genuine eight-digit value that is also a valid `%Y%m%d` date
+  still classifies as a date; a nine-digit id now correctly classifies as
+  numeric.
+* `read_recent_snapshots()` now returns the full set of columns even for a
+  snapshot database created before 0.2.3. Previously it ran `SELECT *` without
+  migrating, so an older database returned rows with the newer columns (such as
+  `report_file`) *absent* rather than `NA`, and callers relying on those
+  columns errored instead of degrading. The missing columns are now filled in
+  after the read with the same defaults a migration would apply; the database
+  file itself is not modified, so reads remain safe on read-only or
+  network-shared databases.
+
+## Packaging
+
+* The bundled `starwars_csv` demonstration data (`inst/demonstrations/data/`)
+  is now shipped. An unanchored `.gitignore` rule had excluded it, so a fresh
+  clone was missing the file that 27 example blocks and two tests depend on,
+  and `R CMD check` failed on a clean checkout.
+* The fixed-width demonstration (`starwars_fwf`) now has its data file. A new
+  `inst/demonstrations/makedata.R` derives `starwars.fwf` from the CSV, so the
+  FWF half of `demo.R` runs end-to-end instead of aborting on a missing file.
+
+# dqcheckr 0.2.4
+
+## Bug fixes
+
+* A declared `encoding` of ASCII (or a formal alias such as `US-ASCII`) is now
+  read as UTF-8. ASCII is a strict subset of UTF-8, so this is lossless — and
+  it removes a hard R session crash ("Invalid multibyte sequence" inside
+  vroom/iconv, not a catchable R error) when a delivery declared ASCII
+  contains a byte above 127 beyond whatever sample an encoding sniffer
+  originally looked at.
+
+## New features
+
+* New QC-16 "File encoding" check. When the effective encoding is UTF-8,
+  `read_dataset()` now validity-scans the entire file before parsing. A
+  delivery that is not valid UTF-8 no longer risks crashing or silently
+  producing mojibake: it is read with a single-byte fallback encoding, the
+  run completes, and QC-16 reports a FAIL naming the detector's best guess at
+  the actual encoding (suppliers can change export encodings between
+  deliveries, so this is checked per delivery). Valid files and declared
+  single-byte encodings (which have no invalid byte sequences) report PASS.
+  New dependency: `stringi`.
+
+# dqcheckr 0.2.3
+
+## Bug fixes
+
+* A delivery with zero data rows (e.g. a header-only CSV) no longer aborts
+  `run_dq_check()` with an untyped "missing value where TRUE/FALSE needed"
+  error. Missing rates are defined as 0 for empty inputs, and QC-14 gains an
+  unconditional "Empty file" FAIL sub-check so an empty delivery always fails
+  the run — with a snapshot and report — instead of crashing it.
+* CP-04 (numeric mean shift) no longer errors when a numeric column has no
+  parseable values in the current delivery; it now emits a WARN result saying
+  the mean shift cannot be computed.
+* `detect_files()` no longer considers subdirectories of `folder` when
+  picking the current/previous file by modification time.
+* `dq_result(threshold = NULL)` now yields an `NA` threshold instead of
+  failing with "argument is of length zero"; invalid vector `status` values
+  produce a clear typed error.
+* An invalid regex in a `column_rules` `pattern` now produces a QC-13 FAIL
+  result naming the pattern instead of aborting the run; an invalid
+  `column_order_severity` is rejected at `load_config()` time with a typed
+  `dqcheckr_invalid_config` error instead of aborting mid-check.
+* `run_custom_checks()` now validates each returned element (required fields
+  and a valid status) and aborts with `dqcheckr_invalid_custom_checks` naming
+  the offending element, instead of failing later with misleading errors.
+* Snapshot writes are now wrapped in a single transaction, so a failure can
+  no longer leave a `snapshots` row without its `column_snapshots` stats;
+  column-level custom results are batch-inserted.
+* The snapshot `run_timestamp` and the report filename are now derived from
+  one timestamp taken at the start of the run. Previously they came from two
+  separate clock reads, so links that reconstruct the report filename from
+  the snapshot timestamp (as the GUI does) could intermittently point at a
+  file with a name one second off.
+* `compare_snapshots()` no longer announces (and offers to open) a drift
+  report path when Quarto is unavailable and no report was written.
+* Explicitly supplied snapshot IDs are now validated to belong to the
+  requested dataset; previously IDs from another dataset silently produced a
+  cross-dataset "drift" comparison.
+* Rendered reports are moved from the render directory with a copy+delete
+  fallback when `file.rename()` fails across filesystems (e.g. a
+  network-share report directory); previously the move failed silently.
+* QC-10 (numeric bounds) now counts violating rows rather than distinct
+  values — a million rows of the same out-of-range value no longer reads as
+  "1 out-of-range value(s)".
+* QC-09 (allowed values) compares numerically when the YAML rule supplies
+  numbers, so a file value of `"2.10"` matches an allowed value of `2.1`.
+* `read_recent_snapshots()`'s empty-database fallback now has the same
+  columns as the live query (it was missing `comparison_mode`,
+  `render_status`, and `type_changed_cols_vs_previous`).
+
+## New features
+
+* New `report_file` column in the `snapshots` table stores the rendered
+  report's filename outright (auto-migrated into existing databases), so
+  consumers no longer need to reconstruct it from the run timestamp.
+  `read_recent_snapshots()` returns it; `NA` for pre-0.2.3 rows.
+
+## Documentation
+
+* `run_dq_check()` and `compare_snapshots()` now document that relative
+  `snapshot_db` / `report_output_dir` paths resolve against the working
+  directory, not `config_dir`.
+* `infer_col_type()` documents its date-format precedence, the
+  all-must-parse rule, and the all-8-digit-identifier caveat, with a pointer
+  to `column_types` overrides.
+
+## Performance
+
+* Column types are now inferred once per data frame and shared across all
+  type-dependent checks. `run_qc_checks()` and the individual check functions
+  gain an optional `types` argument; previously each of QC-06/07/08/11/15,
+  the column statistics, and five comparison checks re-ran full-column type
+  inference (five date parses plus a numeric parse) independently — the
+  dominant cost on large files.
+* `infer_col_type()` rejects non-matching date formats from a 100-value head
+  sample before scanning the full column (results are identical; only the
+  rejection path gets cheaper).
+* `compute_col_stats()` builds one data frame per column instead of one per
+  statistic row, cutting allocations on wide files.
+
 # dqcheckr 0.2.2
 
 ## New features

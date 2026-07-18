@@ -25,10 +25,35 @@ test_that("dq_result() stops when status is not one of PASS/WARN/FAIL/INFO", {
 })
 
 test_that("dq_result() stops on NULL status", {
+  # Assert the typed class, not any error -- a bare expect_error() would pass on
+  # an unrelated failure and never reach the status guard (B-35/B-53).
   expect_error(
     dq_result("QC-01", "Missing rate", status = NULL,
-              observed = "x", message = "x")
+              observed = "x", message = "x"),
+    class = "dqcheckr_invalid_argument"
   )
+})
+
+test_that(".move_file() aborts with a typed error when the move fails (B-29)", {
+  from <- tempfile(fileext = ".html")
+  writeLines("<html></html>", from)
+  on.exit(unlink(from))
+  # Target's parent directory does not exist, so both rename and copy fail.
+  # file.copy() emits its own "cannot create file" warning first; the point of
+  # the test is the typed error, not that noise.
+  to <- file.path(tempfile(), "nested", "report.html")
+  suppressWarnings(
+    expect_error(dqcheckr:::.move_file(from, to), class = "dqcheckr_write_error"))
+})
+
+test_that(".move_file() moves a file within a filesystem and returns TRUE (B-29)", {
+  from <- tempfile(fileext = ".html")
+  writeLines("x", from)
+  to   <- tempfile(fileext = ".html")
+  expect_true(dqcheckr:::.move_file(from, to))
+  expect_true(file.exists(to))
+  expect_false(file.exists(from))
+  unlink(to)
 })
 
 test_that("dq_result() accepts all four valid status values", {
@@ -159,4 +184,113 @@ test_that("load_config() stops when dataset yml is missing", {
              file.path(sub, "dqcheckr.yml"))
   expect_error(load_config("nonexistent_ds", sub),
                class = "dqcheckr_missing_file")
+})
+
+# -- dq_result() argument hardening (0.2.3, B-05) ---------------------------------
+
+test_that("dq_result() accepts threshold = NULL as absent", {
+  r <- dq_result("QC-99", "test", status = "PASS", observed = "ok",
+                 threshold = NULL, message = "ok")
+  expect_identical(r$threshold, NA_character_)
+})
+
+test_that("dq_result() rejects invalid status values with a typed error", {
+  expect_error(
+    dq_result("QC-99", "t", status = "ERROR", observed = "o", message = "m"),
+    class = "dqcheckr_invalid_argument")
+  expect_error(
+    dq_result("QC-99", "t", status = c("PASS", "FAIL"), observed = "o", message = "m"),
+    class = "dqcheckr_invalid_argument")
+})
+
+# -- load_config() column_order_severity validation (0.2.3, B-09) -----------------
+
+test_that("load_config() rejects an invalid column_order_severity", {
+  tmp <- tempfile("cfg_"); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE))
+  writeLines("default_rules: {}", file.path(tmp, "dqcheckr.yml"))
+  writeLines(c("dataset_name: sev_ds",
+               "rule_overrides:",
+               "  column_order_severity: error"),
+             file.path(tmp, "sev_ds.yml"))
+  expect_error(load_config("sev_ds", tmp), class = "dqcheckr_invalid_config")
+})
+
+test_that("load_config() accepts valid column_order_severity values", {
+  tmp <- tempfile("cfg_"); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE))
+  writeLines("default_rules: {}", file.path(tmp, "dqcheckr.yml"))
+  for (sev in c("pass", "warn", "fail", "info", "FAIL")) {
+    writeLines(c("dataset_name: sev_ok",
+                 "rule_overrides:",
+                 sprintf("  column_order_severity: %s", sev)),
+               file.path(tmp, "sev_ok.yml"))
+    expect_no_error(load_config("sev_ok", tmp))
+  }
+})
+
+# -- infer_col_type() head-sample shortcut is behaviour-preserving (0.2.3, P-02) --
+
+test_that("infer_col_type() results unchanged with >100 values", {
+  dates <- format(seq(as.Date("2020-01-01"), by = "day", length.out = 250), "%Y-%m-%d")
+  expect_equal(infer_col_type(dates), "date")
+  nums <- as.character(seq_len(250))
+  expect_equal(infer_col_type(nums), "numeric")
+  # a bad date beyond the head sample still rejects the date classification
+  dates_bad <- c(dates, "not-a-date")
+  expect_equal(infer_col_type(dates_bad), "character")
+  chars <- c(rep("alpha", 150), rep("beta", 150))
+  expect_equal(infer_col_type(chars), "character")
+})
+
+# -- infer_col_type() anchored date shapes (B-02) --------------------------------
+# as.Date() delegates to strptime(), which matches a *prefix*: without an
+# anchored shape gate, trailing junk and extra digits were silently accepted as
+# dates, so corrupt dates reported clean (QC-06) and numeric id columns lost
+# their numeric checks (QC-07/08/11).
+
+test_that("infer_col_type() rejects ISO dates with trailing characters", {
+  x <- c("2024-01-15x", "2024-02-20x", "2024-03-25x")
+  expect_equal(infer_col_type(x), "character")
+})
+
+test_that("infer_col_type() classifies 9-digit ids as numeric, not date", {
+  # "202401159" parses under %Y%m%d via prefix match ("20240115") pre-fix.
+  x <- c("202401159", "202401160", "202401161", "202401162")
+  expect_equal(infer_col_type(x), "numeric")
+})
+
+test_that("infer_col_type() rejects mixed-width numeric ids as numeric", {
+  x <- c("2024011", "20240115", "202401159", "2024")
+  expect_equal(infer_col_type(x), "numeric")
+})
+
+test_that("infer_col_type() rejects yyyymmdd values with trailing digits en masse", {
+  x <- as.character(seq(202401150, by = 1, length.out = 200))  # all 9-digit
+  expect_equal(infer_col_type(x), "numeric")
+})
+
+test_that("infer_col_type() keeps the 8-digit valid-date caveat (still 'date')", {
+  # Documented caveat: an 8-digit id that is also a valid %Y%m%d date is a date.
+  x <- c("20240115", "20240220", "20240325")
+  expect_equal(infer_col_type(x), "date")
+})
+
+test_that("infer_col_type() treats 8-digit non-calendar ids as numeric", {
+  # 8 digits but month/day out of range -> as.Date fails -> numeric (unchanged).
+  x <- c("99999999", "88888888", "77777777")
+  expect_equal(infer_col_type(x), "numeric")
+})
+
+test_that("infer_col_type() still accepts clean dates across all formats", {
+  expect_equal(infer_col_type(c("2024-01-15", "2024-02-20")),   "date")  # %Y-%m-%d
+  expect_equal(infer_col_type(c("15/01/2024", "20/02/2024")),   "date")  # %d/%m/%Y
+  expect_equal(infer_col_type(c("01/25/2024", "02/28/2024")),   "date")  # %m/%d/%Y fallback (day > 12)
+  expect_equal(infer_col_type(c("20240115", "20240220")),       "date")  # %Y%m%d
+  expect_equal(infer_col_type(c("15-01-2024", "20-02-2024")),   "date")  # %d-%m-%Y
+})
+
+test_that("infer_col_type() rejects slashed dates with trailing junk", {
+  x <- c("15/01/2024ZZ", "20/02/2024ZZ")
+  expect_equal(infer_col_type(x), "character")
 })
